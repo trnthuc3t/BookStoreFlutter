@@ -1,0 +1,12 @@
+# Placeholder Images
+
+This folder will contain images copied from the Android project:
+- ic_logo.png
+- ic_no_image.png
+- image_no_available.jpg
+- Various icon files from drawable folders
+
+To copy images from Android project:
+1. Copy files from app/src/main/res/drawable-*/ to this folder
+2. Rename files to follow Flutter naming conventions
+3. Update image references in Flutter code

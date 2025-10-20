@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "582199622035",
+    "firebase_url": "https://booksell-cfee0-default-rtdb.firebaseio.com",
+    "project_id": "booksell-cfee0",
+    "storage_bucket": "booksell-cfee0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:582199622035:android:953698b9a02e8f562b5066",
+        "android_client_info": {
+          "package_name": "com.pro.book"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDdJ_Js2ItsFidvfFLlXFfAJw_j5pGPDuY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
