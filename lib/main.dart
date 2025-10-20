@@ -14,16 +14,33 @@ import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialize Firebase
-  await Firebase.initializeApp();
-  
-  // Initialize services
-  await FirebaseService.instance.initialize();
-  await DatabaseService.instance.database; // Initialize database
-  await GeminiService.instance.initialize();
-  
-  runApp(const BookSellApp());
+
+  try {
+    // Initialize Firebase
+    await Firebase.initializeApp();
+    print('✅ Firebase initialized successfully');
+
+    // Initialize services with error handling
+    await FirebaseService.instance.initialize();
+    print('✅ FirebaseService initialized successfully');
+
+    await DatabaseService.instance.database; // Initialize database
+    print('✅ DatabaseService initialized successfully');
+
+    // Initialize Gemini service (optional, won't crash if fails)
+    try {
+      await GeminiService.instance.initialize();
+      print('✅ GeminiService initialized successfully');
+    } catch (e) {
+      print('⚠️ Warning: Gemini service initialization failed: $e');
+    }
+
+    runApp(const BookSellApp());
+  } catch (e) {
+    print('❌ Error during app initialization: $e');
+    // Run app anyway with basic functionality
+    runApp(const BookSellApp());
+  }
 }
 
 class BookSellApp extends StatelessWidget {

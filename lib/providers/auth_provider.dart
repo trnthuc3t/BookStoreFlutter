@@ -7,7 +7,7 @@ import '../constants/app_constants.dart';
 
 class AuthProvider with ChangeNotifier {
   final FirebaseService _firebaseService = FirebaseService.instance;
-  
+
   app_models.User? _currentUser;
   bool _isLoading = false;
   String? _errorMessage;
@@ -18,30 +18,40 @@ class AuthProvider with ChangeNotifier {
   bool get isLoggedIn => _currentUser != null;
 
   AuthProvider() {
-    _initializeAuth();
+    // Delay initialization to ensure Firebase is ready
+    Future.delayed(const Duration(milliseconds: 100), () {
+      _initializeAuth();
+    });
   }
 
   Future<void> _initializeAuth() async {
-    // Set trạng thái hiện tại ngay lập tức để Splash không chờ stream
-    final u = _firebaseService.currentUser;
-    _currentUser = u != null
-        ? app_models.User(
-            email: u.email,
-            isAdmin: false,
-          )
-        : null;
-    notifyListeners();
-
-    // Sau đó mới subscribe stream để cập nhật theo thời gian thực
-    _firebaseService.authStateChanges.listen((firebase_auth.User? user) {
-      _currentUser = user != null
+    try {
+      // Set trạng thái hiện tại ngay lập tức để Splash không chờ stream
+      final u = _firebaseService.currentUser;
+      _currentUser = u != null
           ? app_models.User(
-              email: user.email,
+              email: u.email,
               isAdmin: false,
             )
           : null;
       notifyListeners();
-    });
+
+      // Sau đó mới subscribe stream để cập nhật theo thời gian thực
+      _firebaseService.authStateChanges.listen((firebase_auth.User? user) {
+        _currentUser = user != null
+            ? app_models.User(
+                email: user.email,
+                isAdmin: false,
+              )
+            : null;
+        notifyListeners();
+      });
+    } catch (e) {
+      print('Error initializing auth: $e');
+      // Set default state if initialization fails
+      _currentUser = null;
+      notifyListeners();
+    }
   }
 
   Future<bool> signIn(String email, String password) async {
@@ -49,8 +59,9 @@ class AuthProvider with ChangeNotifier {
     _clearError();
 
     try {
-      final userCredential = await _firebaseService.signInWithEmailAndPassword(email, password);
-      
+      final userCredential =
+          await _firebaseService.signInWithEmailAndPassword(email, password);
+
       if (userCredential != null) {
         final u = userCredential.user;
         _currentUser = u != null
@@ -59,13 +70,13 @@ class AuthProvider with ChangeNotifier {
                 isAdmin: false,
               )
             : null;
-        
+
         // Save user data to SharedPreferences
         await _saveUserData(email, false); // Default to non-admin
-        
+
         // Check if user is admin
         await _checkAdminStatus(email);
-        
+
         notifyListeners();
         return true;
       }
@@ -83,8 +94,9 @@ class AuthProvider with ChangeNotifier {
     _clearError();
 
     try {
-      final userCredential = await _firebaseService.createUserWithEmailAndPassword(email, password);
-      
+      final userCredential = await _firebaseService
+          .createUserWithEmailAndPassword(email, password);
+
       if (userCredential != null) {
         final u = userCredential.user;
         _currentUser = u != null
@@ -93,10 +105,10 @@ class AuthProvider with ChangeNotifier {
                 isAdmin: false,
               )
             : null;
-        
+
         // Save user data to SharedPreferences
         await _saveUserData(email, false);
-        
+
         notifyListeners();
         return true;
       }
@@ -111,14 +123,14 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> signOut() async {
     _setLoading(true);
-    
+
     try {
       await _firebaseService.signOut();
       _currentUser = null;
-      
+
       // Clear user data from SharedPreferences
       await _clearUserData();
-      
+
       notifyListeners();
     } catch (e) {
       _setError('Đăng xuất thất bại: ${e.toString()}');
@@ -153,7 +165,7 @@ class AuthProvider with ChangeNotifier {
           }
           return false;
         });
-        
+
         if (isAdmin) {
           await _saveUserData(email, true);
         }
