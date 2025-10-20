@@ -26,24 +26,29 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> _initializeAuth() async {
     try {
-      // Set trạng thái hiện tại ngay lập tức để Splash không chờ stream
-      final u = _firebaseService.currentUser;
-      _currentUser = u != null
-          ? app_models.User(
-              email: u.email,
-              isAdmin: false,
-            )
-          : null;
+      // Try auto login first
+      final autoLoginSuccess = await autoLogin();
+
+      if (!autoLoginSuccess) {
+        // If auto login failed, set current user to null
+        _currentUser = null;
+      }
+
       notifyListeners();
 
       // Sau đó mới subscribe stream để cập nhật theo thời gian thực
-      _firebaseService.authStateChanges.listen((firebase_auth.User? user) {
-        _currentUser = user != null
-            ? app_models.User(
-                email: user.email,
-                isAdmin: false,
-              )
-            : null;
+      _firebaseService.authStateChanges
+          .listen((firebase_auth.User? user) async {
+        if (user != null) {
+          // Load admin status when user is authenticated
+          final isAdminStatus = await isAdmin();
+          _currentUser = app_models.User(
+            email: user.email,
+            isAdmin: isAdminStatus,
+          );
+        } else {
+          _currentUser = null;
+        }
         notifyListeners();
       });
     } catch (e) {
@@ -158,16 +163,34 @@ class AuthProvider with ChangeNotifier {
     try {
       final adminSnapshot = await _firebaseService.getData('admin');
       if (adminSnapshot.exists) {
-        final adminData = adminSnapshot.value as Map<dynamic, dynamic>;
-        final isAdmin = adminData.values.any((admin) {
-          if (admin is Map && admin['email'] == email) {
-            return admin['isAdmin'] == true;
-          }
-          return false;
-        });
+        final adminData = adminSnapshot.value;
 
-        if (isAdmin) {
-          await _saveUserData(email, true);
+        if (adminData is Map<dynamic, dynamic>) {
+          // Firebase returns a Map
+          final isAdmin = adminData.values.any((admin) {
+            if (admin is Map && admin['email'] == email) {
+              return admin['isAdmin'] == true;
+            }
+            return false;
+          });
+
+          if (isAdmin) {
+            await _saveUserData(email, true);
+          }
+        } else if (adminData is List) {
+          // Firebase returns a List
+          final isAdmin = adminData.any((admin) {
+            if (admin is Map && admin['email'] == email) {
+              return admin['isAdmin'] == true;
+            }
+            return false;
+          });
+
+          if (isAdmin) {
+            await _saveUserData(email, true);
+          }
+        } else {
+          print('Unexpected data type for admin: ${adminData.runtimeType}');
         }
       }
     } catch (e) {
@@ -195,6 +218,30 @@ class AuthProvider with ChangeNotifier {
   Future<String?> getStoredEmail() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(AppConstants.userEmailKey);
+  }
+
+  Future<bool> autoLogin() async {
+    try {
+      final storedEmail = await getStoredEmail();
+      if (storedEmail != null) {
+        // Check if Firebase user is still authenticated
+        final firebaseUser = _firebaseService.currentUser;
+        if (firebaseUser != null && firebaseUser.email == storedEmail) {
+          // User is still authenticated, load admin status
+          final isAdminStatus = await isAdmin();
+          _currentUser = app_models.User(
+            email: firebaseUser.email,
+            isAdmin: isAdminStatus,
+          );
+          notifyListeners();
+          return true;
+        }
+      }
+      return false;
+    } catch (e) {
+      print('Auto login error: $e');
+      return false;
+    }
   }
 
   void _setLoading(bool loading) {

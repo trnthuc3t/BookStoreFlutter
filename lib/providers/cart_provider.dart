@@ -1,11 +1,10 @@
 import 'package:flutter/foundation.dart';
 import '../models/product.dart';
 import '../services/database_service.dart';
-import '../providers/auth_provider.dart';
 
 class CartProvider with ChangeNotifier {
   final DatabaseService _databaseService = DatabaseService.instance;
-  
+
   List<Map<String, dynamic>> _cartItems = [];
   bool _isLoading = false;
   String? _errorMessage;
@@ -14,7 +13,7 @@ class CartProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   int get itemCount => _cartItems.length;
-  
+
   int get totalPrice {
     return _cartItems.fold(0, (sum, item) {
       final price = item['price'] as int;
@@ -39,7 +38,8 @@ class CartProvider with ChangeNotifier {
     }
   }
 
-  Future<void> addToCart(Product product, int quantity, String userEmail) async {
+  Future<void> addToCart(
+      Product product, int quantity, String userEmail) async {
     _setLoading(true);
     _clearError();
 
@@ -53,7 +53,8 @@ class CartProvider with ChangeNotifier {
     }
   }
 
-  Future<void> updateQuantity(int productId, int quantity, String userEmail) async {
+  Future<void> updateQuantity(
+      int productId, int quantity, String userEmail) async {
     _setLoading(true);
     _clearError();
 

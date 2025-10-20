@@ -17,14 +17,42 @@ class _SplashScreenState extends State<SplashScreen> {
     super.initState();
     // Điều hướng sau frame đầu để đảm bảo context sẵn sàng
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkAuthStatus());
+
+    // Listen to auth changes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      authProvider.addListener(_onAuthStateChanged);
+    });
+  }
+
+  @override
+  void dispose() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    authProvider.removeListener(_onAuthStateChanged);
+    super.dispose();
+  }
+
+  void _onAuthStateChanged() {
+    if (mounted) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      if (authProvider.isLoggedIn) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const MainScreen()),
+        );
+      } else {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+        );
+      }
+    }
   }
 
   Future<void> _checkAuthStatus() async {
     await Future.delayed(const Duration(milliseconds: 500));
-    
+
     if (mounted) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      
+
       if (authProvider.isLoggedIn) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const MainScreen()),

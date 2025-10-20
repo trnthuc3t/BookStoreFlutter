@@ -6,7 +6,7 @@ import '../services/firebase_service.dart';
 
 class OrderProvider with ChangeNotifier {
   final FirebaseService _firebaseService = FirebaseService.instance;
-  
+
   List<Order> _orders = [];
   List<Voucher> _vouchers = [];
   bool _isLoading = false;
@@ -35,22 +35,62 @@ class OrderProvider with ChangeNotifier {
     _clearError();
 
     try {
-      final query = _firebaseService.orderByChild('order', 'userEmail')
+      // Use correct query path
+      final query = _firebaseService
+          .orderByChild('order', 'userEmail')
           .equalTo(userEmail);
       final snapshot = await query.get();
-      
+
       if (snapshot.exists) {
-        final data = snapshot.value as Map<dynamic, dynamic>;
-        _orders = data.values
-            .map((item) => Order.fromJson(Map<String, dynamic>.from(item)))
-            .toList();
-        
+        final data = snapshot.value;
+
+        if (data is Map<dynamic, dynamic>) {
+          // Firebase returns a Map
+          _orders = data.values
+              .where((item) => item != null)
+              .map((item) {
+                try {
+                  return Order.fromJson(_convertToMap(item));
+                } catch (e) {
+                  print('Error parsing order: $e');
+                  return null;
+                }
+              })
+              .where((order) => order != null)
+              .cast<Order>()
+              .toList();
+        } else if (data is List) {
+          // Firebase returns a List
+          _orders = data
+              .where((item) => item != null)
+              .map((item) {
+                try {
+                  return Order.fromJson(_convertToMap(item));
+                } catch (e) {
+                  print('Error parsing order: $e');
+                  return null;
+                }
+              })
+              .where((order) => order != null)
+              .cast<Order>()
+              .toList();
+        } else {
+          print('Unexpected data type for user orders: ${data.runtimeType}');
+          _orders = [];
+        }
+
         // Sort by date (newest first)
         _orders.sort((a, b) => b.id.compareTo(a.id));
+
+        print('Loaded ${_orders.length} orders for user: $userEmail');
+      } else {
+        print('No orders found for user: $userEmail');
+        _orders = [];
       }
       notifyListeners();
     } catch (e) {
       _setError('Lỗi tải đơn hàng: ${e.toString()}');
+      print('Error loading user orders: $e');
     } finally {
       _setLoading(false);
     }
@@ -63,11 +103,44 @@ class OrderProvider with ChangeNotifier {
     try {
       final snapshot = await _firebaseService.getData('voucher');
       if (snapshot.exists) {
-        final data = snapshot.value as Map<dynamic, dynamic>;
-        _vouchers = data.values
-            .map((item) => Voucher.fromJson(Map<String, dynamic>.from(item)))
-            .where((voucher) => voucher.isActive)
-            .toList();
+        final data = snapshot.value;
+
+        if (data is Map<dynamic, dynamic>) {
+          // Firebase returns a Map
+          _vouchers = data.values
+              .where((item) => item != null)
+              .map((item) {
+                try {
+                  return Voucher.fromJson(_convertToMap(item));
+                } catch (e) {
+                  print('Error parsing voucher: $e');
+                  return null;
+                }
+              })
+              .where((voucher) => voucher != null)
+              .cast<Voucher>()
+              .where((voucher) => voucher.isActive)
+              .toList();
+        } else if (data is List) {
+          // Firebase returns a List
+          _vouchers = data
+              .where((item) => item != null)
+              .map((item) {
+                try {
+                  return Voucher.fromJson(_convertToMap(item));
+                } catch (e) {
+                  print('Error parsing voucher: $e');
+                  return null;
+                }
+              })
+              .where((voucher) => voucher != null)
+              .cast<Voucher>()
+              .where((voucher) => voucher.isActive)
+              .toList();
+        } else {
+          print('Unexpected data type for vouchers: ${data.runtimeType}');
+          _vouchers = [];
+        }
       }
       notifyListeners();
     } catch (e) {
@@ -83,11 +156,11 @@ class OrderProvider with ChangeNotifier {
 
     try {
       await _firebaseService.setData('order/${order.id}', order.toJson());
-      
+
       // Add to local list
       _orders.insert(0, order);
       notifyListeners();
-      
+
       return true;
     } catch (e) {
       _setError('Lỗi tạo đơn hàng: ${e.toString()}');
@@ -103,14 +176,14 @@ class OrderProvider with ChangeNotifier {
 
     try {
       await _firebaseService.updateData('order/$orderId', {'status': status});
-      
+
       // Update local list
       final index = _orders.indexWhere((order) => order.id == orderId);
       if (index != -1) {
         _orders[index] = _orders[index].copyWith(status: status.toString());
         notifyListeners();
       }
-      
+
       return true;
     } catch (e) {
       _setError('Lỗi cập nhật trạng thái đơn hàng: ${e.toString()}');
@@ -165,6 +238,25 @@ class OrderProvider with ChangeNotifier {
     _clearError();
   }
 
+  // Helper method to safely convert Firebase data to Map<String, dynamic>
+  Map<String, dynamic> _convertToMap(dynamic data) {
+    if (data is Map<String, dynamic>) {
+      return data;
+    } else if (data is Map) {
+      // Handle Map<Object?, Object?> and other Map types
+      final result = <String, dynamic>{};
+      data.forEach((key, value) {
+        if (key != null) {
+          result[key.toString()] = value;
+        }
+      });
+      return result;
+    } else {
+      throw Exception(
+          'Cannot convert ${data.runtimeType} to Map<String, dynamic>');
+    }
+  }
+
   // Admin functions
   Future<void> loadOrders() async {
     _setLoading(true);
@@ -173,11 +265,43 @@ class OrderProvider with ChangeNotifier {
     try {
       final snapshot = await _firebaseService.getData('order');
       if (snapshot.exists) {
-        final data = snapshot.value as Map<dynamic, dynamic>;
-        _orders = data.values
-            .map((item) => Order.fromJson(Map<String, dynamic>.from(item)))
-            .toList();
-        
+        final data = snapshot.value;
+
+        if (data is Map<dynamic, dynamic>) {
+          // Firebase returns a Map
+          _orders = data.values
+              .where((item) => item != null)
+              .map((item) {
+                try {
+                  return Order.fromJson(_convertToMap(item));
+                } catch (e) {
+                  print('Error parsing order: $e');
+                  return null;
+                }
+              })
+              .where((order) => order != null)
+              .cast<Order>()
+              .toList();
+        } else if (data is List) {
+          // Firebase returns a List
+          _orders = data
+              .where((item) => item != null)
+              .map((item) {
+                try {
+                  return Order.fromJson(_convertToMap(item));
+                } catch (e) {
+                  print('Error parsing order: $e');
+                  return null;
+                }
+              })
+              .where((order) => order != null)
+              .cast<Order>()
+              .toList();
+        } else {
+          print('Unexpected data type for orders: ${data.runtimeType}');
+          _orders = [];
+        }
+
         // Sort by date (newest first)
         _orders.sort((a, b) => b.id.compareTo(a.id));
       }
@@ -195,7 +319,7 @@ class OrderProvider with ChangeNotifier {
 
     try {
       await _firebaseService.updateData('order/$orderId', {'status': status});
-      
+
       // Update local list
       final index = _orders.indexWhere((order) => order.id == orderId);
       if (index != -1) {

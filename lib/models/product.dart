@@ -1,6 +1,23 @@
-import 'dart:convert';
-
 class Product {
+  // Helper method to safely convert Firebase data to Map<String, dynamic>
+  static Map<String, dynamic> _convertToMap(dynamic data) {
+    if (data is Map<String, dynamic>) {
+      return data;
+    } else if (data is Map) {
+      // Handle Map<Object?, Object?> and other Map types
+      final result = <String, dynamic>{};
+      data.forEach((key, value) {
+        if (key != null) {
+          result[key.toString()] = value;
+        }
+      });
+      return result;
+    } else {
+      throw Exception(
+          'Cannot convert ${data.runtimeType} to Map<String, dynamic>');
+    }
+  }
+
   int id;
   String? name;
   String? description;
@@ -63,9 +80,15 @@ class Product {
     Map<String, Rating>? ratingMap;
     if (json['rating'] != null) {
       ratingMap = {};
-      (json['rating'] as Map<String, dynamic>).forEach((key, value) {
-        ratingMap![key] = Rating.fromJson(value);
-      });
+      final ratingData = json['rating'];
+      if (ratingData is Map) {
+        ratingData.forEach((key, value) {
+          if (key != null && value is Map) {
+            ratingMap![key.toString()] =
+                Rating.fromJson(Product._convertToMap(value));
+          }
+        });
+      }
     }
 
     return Product(
@@ -168,7 +191,8 @@ class Rating {
   factory Rating.fromJson(Map<String, dynamic> json) {
     return Rating(
       rate: (json['rate'] ?? 0.0).toDouble(),
-      comment: json['comment'],
+      comment: json['comment'] ??
+          json['review'], // Handle both 'comment' and 'review' fields
       userEmail: json['userEmail'],
       timestamp: json['timestamp'] ?? 0,
     );
