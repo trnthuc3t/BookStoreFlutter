@@ -22,6 +22,17 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> _initializeAuth() async {
+    // Set trạng thái hiện tại ngay lập tức để Splash không chờ stream
+    final u = _firebaseService.currentUser;
+    _currentUser = u != null
+        ? app_models.User(
+            email: u.email,
+            isAdmin: false,
+          )
+        : null;
+    notifyListeners();
+
+    // Sau đó mới subscribe stream để cập nhật theo thời gian thực
     _firebaseService.authStateChanges.listen((firebase_auth.User? user) {
       _currentUser = user != null
           ? app_models.User(

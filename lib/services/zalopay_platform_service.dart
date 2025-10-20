@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 class ZaloPayPlatformService {
   static const MethodChannel _channel = MethodChannel('zalopay_payment');
+  static const EventChannel _eventChannel = EventChannel('zalopay_payment_events');
 
   static Future<Map<String, dynamic>?> createOrder({
     required int amount,
@@ -75,8 +76,8 @@ class ZaloPayPlatformService {
   }
 
   static Stream<Map<String, dynamic>> get paymentResultStream {
-    return _channel.receiveBroadcastStream().map((event) {
-      return Map<String, dynamic>.from(event);
-    });
+    // Fallback stub để tránh treo khi native chưa implement EventChannel
+    // Trả về stream trống thay vì gọi native
+    return const Stream.empty();
   }
 }

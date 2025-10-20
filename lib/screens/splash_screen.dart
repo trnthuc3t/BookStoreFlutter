@@ -15,11 +15,12 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _checkAuthStatus();
+    // Điều hướng sau frame đầu để đảm bảo context sẵn sàng
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkAuthStatus());
   }
 
   Future<void> _checkAuthStatus() async {
-    await Future.delayed(const Duration(seconds: 2));
+    await Future.delayed(const Duration(milliseconds: 500));
     
     if (mounted) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
