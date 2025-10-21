@@ -86,7 +86,7 @@ class ProductGridWidget extends StatelessWidget {
                       product.name ?? '',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                        fontSize: 13,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -122,11 +122,11 @@ class ProductGridWidget extends StatelessWidget {
                     Row(
                       children: [
                         Text(
-                          '${product.realPrice}k',
+                          '${product.realPrice}.000₫',
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             color: Colors.blue,
-                            fontSize: 16,
+                            fontSize: 14,
                           ),
                         ),
                         if (product.sale > 0) ...[
