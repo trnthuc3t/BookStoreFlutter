@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import '../models/product.dart';
 
 class ProductGridWidget extends StatelessWidget {
@@ -21,7 +20,7 @@ class ProductGridWidget extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 0.7,
+        childAspectRatio: 0.75, // Increased from 0.7 to give more height
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
       ),
@@ -50,11 +49,13 @@ class ProductGridWidget extends StatelessWidget {
               child: Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(8)),
                   color: Colors.grey.shade100,
                 ),
                 child: ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(8)),
                   child: product.image != null
                       ? CachedNetworkImage(
                           imageUrl: product.image!,
@@ -63,7 +64,8 @@ class ProductGridWidget extends StatelessWidget {
                             child: CircularProgressIndicator(),
                           ),
                           errorWidget: (context, url, error) => const Center(
-                            child: Icon(Icons.book, size: 50, color: Colors.grey),
+                            child:
+                                Icon(Icons.book, size: 50, color: Colors.grey),
                           ),
                         )
                       : const Center(
@@ -72,98 +74,101 @@ class ProductGridWidget extends StatelessWidget {
                 ),
               ),
             ),
-            
+
             // Product info
             Expanded(
               flex: 2,
               child: Padding(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     // Product name
-                    Text(
-                      product.name ?? '',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
+                    Flexible(
+                      child: Text(
+                        product.name ?? '',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          height: 1.2,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
-                    
-                    // Rating
+
+                    // Rating - Made more compact
                     Row(
                       children: [
-                        RatingBarIndicator(
-                          rating: product.rate,
-                          itemBuilder: (context, index) => const Icon(
-                            Icons.star,
-                            color: Colors.amber,
-                          ),
-                          itemCount: 5,
-                          itemSize: 12,
-                          direction: Axis.horizontal,
-                        ),
-                        const SizedBox(width: 4),
+                        const Icon(Icons.star, color: Colors.amber, size: 12),
+                        const SizedBox(width: 2),
                         Text(
-                          '(${product.countReviews})',
+                          '${product.rate.toStringAsFixed(1)}',
                           style: const TextStyle(
-                            fontSize: 10,
-                            color: Colors.grey,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 4),
-                    
-                    // Price
-                    Row(
+
+                    // Price - Simplified layout
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
                       children: [
                         Text(
-                          '${product.realPrice}.000₫',
+                          '${(product.realPrice / 1000).toStringAsFixed(0)}k',
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             color: Colors.blue,
-                            fontSize: 14,
+                            fontSize: 13,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         if (product.sale > 0) ...[
-                          const SizedBox(width: 4),
-                          Text(
-                            '${product.price}k',
-                            style: const TextStyle(
-                              decoration: TextDecoration.lineThrough,
-                              color: Colors.grey,
-                              fontSize: 12,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                             decoration: BoxDecoration(
                               color: Colors.red,
-                              borderRadius: BorderRadius.circular(4),
+                              borderRadius: BorderRadius.circular(3),
                             ),
                             child: Text(
                               '-${product.sale}%',
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 10,
+                                fontSize: 9,
                                 fontWeight: FontWeight.bold,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
+                          if (product.price != product.realPrice)
+                            Text(
+                              '${(product.price / 1000).toStringAsFixed(0)}k',
+                              style: const TextStyle(
+                                decoration: TextDecoration.lineThrough,
+                                color: Colors.grey,
+                                fontSize: 10,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                         ],
                       ],
                     ),
-                    
+
                     // Featured badge
                     if (product.isFeatured)
                       Container(
                         margin: const EdgeInsets.only(top: 4),
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: Colors.orange,
                           borderRadius: BorderRadius.circular(4),

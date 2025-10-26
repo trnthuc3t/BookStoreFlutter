@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/product_provider.dart';
+import '../providers/product_provider_new.dart' as api_providers;
 import '../models/product.dart';
 import '../widgets/product_grid_widget.dart';
 import 'product_detail_screen.dart';
@@ -30,13 +30,16 @@ class _ProductTabState extends State<ProductTab> {
   }
 
   Future<void> _loadData() async {
-    final productProvider = Provider.of<ProductProvider>(context, listen: false);
-    await productProvider.loadProducts();
-    await productProvider.loadCategories();
+    final productProvider =
+        Provider.of<api_providers.ProductApiProvider>(context, listen: false);
+    // Only load if not already loaded (cached)
+    await productProvider.loadProducts(forceReload: false);
+    await productProvider.loadCategories(forceReload: false);
   }
 
   List<Product> get _filteredProducts {
-    final productProvider = Provider.of<ProductProvider>(context, listen: false);
+    final productProvider =
+        Provider.of<api_providers.ProductApiProvider>(context, listen: false);
     var products = productProvider.products;
 
     // Filter by search query
@@ -46,7 +49,8 @@ class _ProductTabState extends State<ProductTab> {
 
     // Filter by category
     if (_selectedCategoryId != null) {
-      products = products.where((p) => p.categoryId == _selectedCategoryId).toList();
+      products =
+          products.where((p) => p.categoryId == _selectedCategoryId).toList();
     }
 
     return products;
@@ -80,7 +84,8 @@ class _ProductTabState extends State<ProductTab> {
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
               onChanged: (value) {
                 setState(() {
@@ -91,7 +96,7 @@ class _ProductTabState extends State<ProductTab> {
           ),
         ),
       ),
-      body: Consumer<ProductProvider>(
+      body: Consumer<api_providers.ProductApiProvider>(
         builder: (context, productProvider, child) {
           if (productProvider.isLoading) {
             return const Center(child: CircularProgressIndicator());
@@ -120,7 +125,8 @@ class _ProductTabState extends State<ProductTab> {
                   height: 50,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     itemCount: productProvider.categories.length + 1,
                     itemBuilder: (context, index) {
                       if (index == 0) {
@@ -146,7 +152,8 @@ class _ProductTabState extends State<ProductTab> {
                           selected: _selectedCategoryId == category.id,
                           onSelected: (selected) {
                             setState(() {
-                              _selectedCategoryId = selected ? category.id : null;
+                              _selectedCategoryId =
+                                  selected ? category.id : null;
                             });
                           },
                         ),
@@ -166,7 +173,8 @@ class _ProductTabState extends State<ProductTab> {
                         onProductTap: (product) {
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (context) => ProductDetailScreen(product: product),
+                              builder: (context) =>
+                                  ProductDetailScreen(product: product),
                             ),
                           );
                         },

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
+import '../providers/auth_provider_new.dart' as api_auth;
 import 'login_screen.dart';
 import 'main_screen.dart';
 
@@ -20,21 +20,26 @@ class _SplashScreenState extends State<SplashScreen> {
 
     // Listen to auth changes
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final authProvider =
+          Provider.of<api_auth.AuthProvider>(context, listen: false);
       authProvider.addListener(_onAuthStateChanged);
     });
   }
 
   @override
   void dispose() {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final authProvider =
+        Provider.of<api_auth.AuthProvider>(context, listen: false);
     authProvider.removeListener(_onAuthStateChanged);
     super.dispose();
   }
 
   void _onAuthStateChanged() {
-    if (mounted) {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (!mounted) return;
+
+    try {
+      final authProvider =
+          Provider.of<api_auth.AuthProvider>(context, listen: false);
       if (authProvider.isLoggedIn) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const MainScreen()),
@@ -44,20 +49,48 @@ class _SplashScreenState extends State<SplashScreen> {
           MaterialPageRoute(builder: (context) => const LoginScreen()),
         );
       }
+    } catch (e) {
+      print('❌ Error in _onAuthStateChanged: $e');
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+        );
+      }
     }
   }
 
   Future<void> _checkAuthStatus() async {
-    await Future.delayed(const Duration(milliseconds: 500));
+    try {
+      // Wait for auth provider to initialize
+      await Future.delayed(const Duration(milliseconds: 1500));
 
-    if (mounted) {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      if (!mounted) return;
+
+      final authProvider =
+          Provider.of<api_auth.AuthProvider>(context, listen: false);
+
+      // Wait for loading to complete with timeout
+      int attempts = 0;
+      while (authProvider.isLoading && attempts < 20 && mounted) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        attempts++;
+      }
+
+      if (!mounted) return;
 
       if (authProvider.isLoggedIn) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const MainScreen()),
         );
       } else {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+        );
+      }
+    } catch (e) {
+      print('❌ Error in _checkAuthStatus: $e');
+      // Always navigate somewhere to prevent app stuck
+      if (mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const LoginScreen()),
         );

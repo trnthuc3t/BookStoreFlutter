@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'providers/auth_provider.dart';
+import 'providers/auth_provider_new.dart' as api_auth; // API-based auth
 import 'providers/cart_provider.dart';
-import 'providers/product_provider.dart';
+import 'providers/product_provider_new.dart'
+    as api_providers; // API-based provider
 import 'providers/order_provider.dart';
 import 'providers/chat_provider.dart';
 import 'services/firebase_service.dart';
@@ -50,9 +51,12 @@ class BookSellApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(
+            create: (_) => api_auth.AuthProvider()), // Use API auth
         ChangeNotifierProvider(create: (_) => CartProvider()),
-        ChangeNotifierProvider(create: (_) => ProductProvider()),
+        ChangeNotifierProvider(
+            create: (_) =>
+                api_providers.ProductApiProvider()), // Use API provider
         ChangeNotifierProvider(create: (_) => OrderProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
       ],

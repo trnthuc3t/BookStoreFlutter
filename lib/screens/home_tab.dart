@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:carousel_slider/carousel_slider.dart';
-import '../providers/product_provider.dart';
+import '../providers/product_provider_new.dart' as api_providers;
 import '../providers/cart_provider.dart';
-import '../providers/auth_provider.dart';
 import '../widgets/product_grid_widget.dart';
 import 'product_detail_screen.dart';
 import 'cart_screen.dart';
@@ -23,9 +22,11 @@ class _HomeTabState extends State<HomeTab> {
   }
 
   Future<void> _loadData() async {
-    final productProvider = Provider.of<ProductProvider>(context, listen: false);
-    await productProvider.loadProducts();
-    await productProvider.loadCategories();
+    final productProvider =
+        Provider.of<api_providers.ProductApiProvider>(context, listen: false);
+    // Only load if not already loaded (cached)
+    await productProvider.loadProducts(forceReload: false);
+    await productProvider.loadCategories(forceReload: false);
   }
 
   @override
@@ -78,7 +79,7 @@ class _HomeTabState extends State<HomeTab> {
           ),
         ],
       ),
-      body: Consumer<ProductProvider>(
+      body: Consumer<api_providers.ProductApiProvider>(
         builder: (context, productProvider, child) {
           if (productProvider.isLoading) {
             return const Center(child: CircularProgressIndicator());
@@ -112,7 +113,8 @@ class _HomeTabState extends State<HomeTab> {
                       autoPlayInterval: const Duration(seconds: 3),
                       viewportFraction: 1.0,
                     ),
-                    items: productProvider.featuredProducts.take(5).map((product) {
+                    items:
+                        productProvider.featuredProducts.take(5).map((product) {
                       return Container(
                         width: double.infinity,
                         margin: const EdgeInsets.symmetric(horizontal: 8),
@@ -128,7 +130,8 @@ class _HomeTabState extends State<HomeTab> {
                         ),
                         child: product.image == null
                             ? const Center(
-                                child: Icon(Icons.book, size: 50, color: Colors.grey),
+                                child: Icon(Icons.book,
+                                    size: 50, color: Colors.grey),
                               )
                             : Container(
                                 decoration: BoxDecoration(
@@ -247,7 +250,8 @@ class _HomeTabState extends State<HomeTab> {
                     onProductTap: (product) {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (context) => ProductDetailScreen(product: product),
+                          builder: (context) =>
+                              ProductDetailScreen(product: product),
                         ),
                       );
                     },
@@ -283,7 +287,8 @@ class _HomeTabState extends State<HomeTab> {
                   onProductTap: (product) {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (context) => ProductDetailScreen(product: product),
+                        builder: (context) =>
+                            ProductDetailScreen(product: product),
                       ),
                     );
                   },

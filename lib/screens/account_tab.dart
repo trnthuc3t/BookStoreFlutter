@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
+import '../providers/auth_provider_new.dart' as api_auth;
 import 'login_screen.dart';
 import 'change_password_screen.dart';
 import 'feedback_screen.dart';
@@ -16,7 +16,7 @@ class AccountTab extends StatelessWidget {
         title: const Text('Tài khoản'),
         automaticallyImplyLeading: false,
       ),
-      body: Consumer<AuthProvider>(
+      body: Consumer<api_auth.AuthProvider>(
         builder: (context, authProvider, child) {
           if (authProvider.isLoading) {
             return const Center(child: CircularProgressIndicator());
@@ -163,7 +163,8 @@ class AccountTab extends StatelessWidget {
                         context: context,
                         builder: (context) => AlertDialog(
                           title: const Text('Đăng xuất'),
-                          content: const Text('Bạn có chắc chắn muốn đăng xuất?'),
+                          content:
+                              const Text('Bạn có chắc chắn muốn đăng xuất?'),
                           actions: [
                             TextButton(
                               onPressed: () => Navigator.of(context).pop(false),
@@ -205,7 +206,8 @@ class AccountTab extends StatelessWidget {
     );
   }
 
-  Widget _buildMenuSection(BuildContext context, String title, List<Widget> items) {
+  Widget _buildMenuSection(
+      BuildContext context, String title, List<Widget> items) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
