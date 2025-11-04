@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider_new.dart';
 import '../services/api_service.dart';
+import 'order_detail_screen.dart';
 
 class HistoryTab extends StatefulWidget {
   const HistoryTab({super.key});
@@ -161,6 +162,7 @@ class _HistoryTabState extends State<HistoryTab>
   }
 
   Widget _buildOrderCard(Map<String, dynamic> order) {
+    final orderId = order['id'];
     final orderNumber = order['order_number'] ?? 'N/A';
     final status = order['status'] ?? 'pending';
     final totalAmount = order['total_amount'] ?? 0.0;
@@ -256,6 +258,40 @@ class _HistoryTabState extends State<HistoryTab>
                   style: const TextStyle(fontSize: 14),
                 ),
               ],
+            ),
+            const SizedBox(height: 12),
+            // View Detail Button
+            InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => OrderDetailScreen(
+                      orderId: orderId,
+                      orderNumber: orderNumber,
+                    ),
+                  ),
+                );
+              },
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Xem thêm',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.blue.shade700,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.keyboard_arrow_down,
+                    size: 18,
+                    color: Colors.blue.shade700,
+                  ),
+                ],
+              ),
             ),
           ],
         ),

@@ -147,24 +147,70 @@ class _PaymentScreenState extends State<PaymentScreen> {
               final priceValue = item['book_price'];
               final price =
                   priceValue != null ? (priceValue as num).toDouble() : 0.0;
+
+              final originalPriceValue = item['book_original_price'];
+              final originalPrice = originalPriceValue != null
+                  ? (originalPriceValue as num).toDouble()
+                  : price;
+
+              final discountValue = item['discount_percentage'];
+              final discountPercentage = discountValue != null
+                  ? (discountValue as num).toDouble()
+                  : 0.0;
+
               final quantityValue = item['quantity'];
               final quantity =
                   quantityValue != null ? (quantityValue as num).toInt() : 1;
-              final totalPrice = (price * quantity).toInt();
+
+              final hasDiscount =
+                  discountPercentage > 0 && originalPrice > price;
+              final totalPrice = price * quantity;
 
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Row(
                   children: [
                     Expanded(
-                      child: Text(
-                        '$title x$quantity',
-                        style: const TextStyle(fontSize: 14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '$title x$quantity',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                          if (hasDiscount)
+                            Text(
+                              '${(price / 1000).toStringAsFixed(0)}k (giảm ${discountPercentage.toStringAsFixed(0)}%)',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.red.shade700,
+                              ),
+                            ),
+                        ],
                       ),
                     ),
-                    Text(
-                      '${(totalPrice / 1000).toStringAsFixed(0)}k',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        if (hasDiscount)
+                          Text(
+                            '${(originalPrice * quantity / 1000).toStringAsFixed(0)}k',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                              decoration: TextDecoration.lineThrough,
+                            ),
+                          ),
+                        Text(
+                          '${(totalPrice / 1000).toStringAsFixed(0)}k',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: hasDiscount
+                                ? Colors.red.shade700
+                                : Colors.black,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

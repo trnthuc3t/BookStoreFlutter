@@ -1,0 +1,286 @@
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../models/user.dart' as app_models;
+import '../services/api_service.dart';
+
+class AuthProvider with ChangeNotifier {
+  app_models.User? _currentUser;
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  app_models.User? get currentUser => _currentUser;
+  bool get isLoading => _isLoading;
+  String? get errorMessage => _errorMessage;
+  bool get isLoggedIn => _currentUser != null;
+
+  AuthProvider() {
+    // Initialize auth on startup
+    Future.delayed(const Duration(milliseconds: 100), () {
+      _initializeAuth();
+    });
+  }
+
+  Future<void> _initializeAuth() async {
+    print('🔄 Starting auth initialization...');
+    _setLoading(true);
+
+    try {
+      // Try auto login first - with timeout
+      print('🔍 Attempting auto login...');
+
+      // Add timeout to prevent hanging
+      final autoLoginSuccess =
+          await autoLogin().timeout(const Duration(seconds: 5), onTimeout: () {
+        print('⏰ Auto login timeout');
+        return false;
+      });
+
+      if (autoLoginSuccess) {
+        print('✅ Auto login successful!');
+      } else {
+        print('❌ Auto login failed - user needs to login');
+        _currentUser = null;
+      }
+
+      notifyListeners();
+    } catch (e) {
+      print('❌ Error initializing auth: $e');
+      _currentUser = null;
+      notifyListeners();
+    } finally {
+      _setLoading(false);
+      print('✅ Auth initialization completed');
+    }
+  }
+
+  Future<bool> autoLogin() async {
+    try {
+      print('🔐 Checking if user is logged in...');
+
+      // Get user ID from SharedPreferences FIRST
+      final prefs = await SharedPreferences.getInstance();
+      final userIdStr = prefs.getString('user_id');
+      final email = prefs.getString('email');
+      final role = prefs.getString('role');
+
+      print('📦 Data from storage - User ID: $userIdStr, Email: $email');
+
+      // If no user data stored, can't auto login
+      if (userIdStr == null || email == null) {
+        print('❌ No user data in storage, auto login failed');
+        return false;
+      }
+
+      final userId = int.tryParse(userIdStr);
+
+      // Check if token exists
+      try {
+        final isLoggedIn = await ApiService.isLoggedIn();
+        if (!isLoggedIn) {
+          print('❌ No token found, but user data exists');
+          print('📦 Using stored data anyway (token expired)');
+        } else {
+          print('✅ Token found');
+        }
+      } catch (e) {
+        print('⚠️ Error checking token: $e');
+        print('📦 Proceeding with stored data');
+      }
+
+      // Use stored data (don't need API verification for now)
+      _currentUser = app_models.User(
+        id: userId,
+        email: email,
+        isAdmin: role == 'admin',
+      );
+
+      print('✅ Auto login successful using stored data - ID: $userId');
+      return true;
+    } catch (e) {
+      print('❌ Auto login error: $e');
+      print('📋 Error details: ${e.toString()}');
+      return false;
+    }
+  }
+
+  Future<bool> signIn(String usernameOrEmail, String password) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final result = await ApiService.login(usernameOrEmail, password);
+      if (result != null && result['user'] != null) {
+        // Get user info from response
+        final userData = result['user'];
+
+        // Store user ID and all info
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('user_id', userData['id'].toString());
+        await prefs.setString('username', userData['username'] ?? '');
+        await prefs.setString('email', userData['email'] ?? '');
+        await prefs.setString('first_name', userData['first_name'] ?? '');
+        await prefs.setString('last_name', userData['last_name'] ?? '');
+        await prefs.setString('role', userData['role'] ?? '');
+
+        _currentUser = app_models.User(
+          id: userData['id'],
+          email: userData['email'] ?? '',
+          isAdmin: userData['role'] == 'admin',
+        );
+
+        // Store email for auto login
+        await _storeEmail(userData['email'] ?? usernameOrEmail);
+        notifyListeners();
+        return true;
+      }
+
+      _setError('Tên đăng nhập/email hoặc mật khẩu không đúng');
+      return false;
+    } catch (e) {
+      _setError('Lỗi đăng nhập: ${e.toString()}');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<bool> signUp({
+    required String username,
+    required String email,
+    required String password,
+    required String firstName,
+    required String lastName,
+    String? phone,
+    String? gender, // Currently not used by backend
+  }) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final result = await ApiService.register(
+        username: username,
+        email: email,
+        password: password,
+        firstName: firstName,
+        lastName: lastName,
+        phone: phone,
+      );
+
+      if (result != null) {
+        // Store all user data (same as sign in)
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('user_id', result['id'].toString());
+        await prefs.setString('username', result['username'] ?? '');
+        await prefs.setString('email', result['email'] ?? '');
+        await prefs.setString('first_name', result['first_name'] ?? '');
+        await prefs.setString('last_name', result['last_name'] ?? '');
+        await prefs.setString('role', result['role'] ?? '');
+
+        // Create user object
+        _currentUser = app_models.User(
+          id: result['id'],
+          email: result['email'] ?? '',
+          isAdmin: result['role'] == 'admin',
+        );
+
+        // Store email for auto login
+        await _storeEmail(result['email'] ?? '');
+
+        print('✅ User registered and data stored');
+        notifyListeners();
+        return true;
+      } else {
+        _setError('Đăng ký thất bại. Username hoặc email đã được sử dụng.');
+        return false;
+      }
+    } catch (e) {
+      _setError('Lỗi đăng ký: ${e.toString()}');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<void> signOut() async {
+    print('🚪 Signing out...');
+    try {
+      await ApiService.logout();
+      print('✅ Token removed');
+
+      // Clear all stored data
+      await _clearStoredEmail();
+      await _clearAllUserData();
+
+      _currentUser = null;
+      print('✅ User data cleared');
+      notifyListeners();
+    } catch (e) {
+      print('❌ Sign out error: $e');
+    }
+  }
+
+  Future<void> _clearAllUserData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('user_id');
+      await prefs.remove('username');
+      await prefs.remove('email');
+      await prefs.remove('first_name');
+      await prefs.remove('last_name');
+      await prefs.remove('stored_email');
+    } catch (e) {
+      print('Error clearing user data: $e');
+    }
+  }
+
+  Future<bool> isAdmin() async {
+    if (_currentUser == null) return false;
+    return _currentUser!.isAdmin;
+  }
+
+  Future<String?> getStoredEmail() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString('stored_email');
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<void> _storeEmail(String email) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('stored_email', email);
+    } catch (e) {
+      print('Error storing email: $e');
+    }
+  }
+
+  Future<void> _clearStoredEmail() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('stored_email');
+    } catch (e) {
+      print('Error clearing stored email: $e');
+    }
+  }
+
+  void _setLoading(bool loading) {
+    _isLoading = loading;
+    notifyListeners();
+  }
+
+  void _setError(String error) {
+    _errorMessage = error;
+    notifyListeners();
+  }
+
+  void _clearError() {
+    _errorMessage = null;
+    notifyListeners();
+  }
+
+  void clearError() {
+    _clearError();
+  }
+}

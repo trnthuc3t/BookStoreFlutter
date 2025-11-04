@@ -27,56 +27,102 @@ class CartListWidget extends StatelessWidget {
   }
 
   Widget _buildCartItem(BuildContext context, Map<String, dynamic> item) {
-    // Map API response fields to widget fields
-    final cartItemId =
-        item['id'] as int? ?? 0; // cart_item_id for update/delete
-    final bookId = item['book_id'] as int? ?? 0;
+    // Map API response fields
+    final cartItemId = item['id'] as int? ?? 0;
     final name = item['book_title'] as String? ?? '';
+    final image = item['book_image'] as String?;
 
-    // Handle price - API returns double
+    // Price handling with discount
     final priceValue = item['book_price'];
-    final price = priceValue != null ? (priceValue as num).toInt() : 0;
+    final price = priceValue != null ? (priceValue as num).toDouble() : 0.0;
 
-    final sale = 0; // API doesn't return sale info in cart
-    final image = item['book_image'] as String?; // May not exist in cart API
+    final originalPriceValue = item['book_original_price'];
+    final originalPrice = originalPriceValue != null
+        ? (originalPriceValue as num).toDouble()
+        : price;
+
+    final discountValue = item['discount_percentage'];
+    final discountPercentage =
+        discountValue != null ? (discountValue as num).toDouble() : 0.0;
 
     final quantityValue = item['quantity'];
     final quantity = quantityValue != null ? (quantityValue as num).toInt() : 1;
 
-    final realPrice = price; // No sale in cart
-    final totalPrice = (realPrice * quantity).toInt();
+    // Calculate prices
+    final hasDiscount = discountPercentage > 0 && originalPrice > price;
+    final totalPrice = price * quantity;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Product image
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                color: Colors.grey.shade100,
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: image != null
-                    ? CachedNetworkImage(
-                        imageUrl: ImageUtils.normalizeImageUrl(image) ?? '',
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) => const Center(
-                          child: CircularProgressIndicator(),
-                        ),
-                        errorWidget: (context, url, error) => const Center(
-                          child: Icon(Icons.book, color: Colors.grey),
-                        ),
-                      )
-                    : const Center(
-                        child: Icon(Icons.book, color: Colors.grey),
+            // Product image with discount badge
+            Stack(
+              children: [
+                Container(
+                  width: 90,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.grey.shade100,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.2),
+                        spreadRadius: 1,
+                        blurRadius: 3,
                       ),
-              ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: image != null
+                        ? CachedNetworkImage(
+                            imageUrl: ImageUtils.normalizeImageUrl(image) ?? '',
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => const Center(
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            errorWidget: (context, url, error) => const Center(
+                              child: Icon(Icons.book,
+                                  color: Colors.grey, size: 32),
+                            ),
+                          )
+                        : const Center(
+                            child:
+                                Icon(Icons.book, color: Colors.grey, size: 32),
+                          ),
+                  ),
+                ),
+                // Discount badge
+                if (hasDiscount)
+                  Positioned(
+                    top: 4,
+                    left: 4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '-${discountPercentage.toStringAsFixed(0)}%',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(width: 12),
 
@@ -85,55 +131,81 @@ class CartListWidget extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Product name
                   Text(
                     name,
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                      fontSize: 15,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
-
-                  // Price - format to show properly
-                  Text(
-                    '${(price / 1000).toStringAsFixed(0)}k',
-                    style: const TextStyle(
-                      color: Colors.blue,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
                   const SizedBox(height: 8),
 
-                  // Quantity controls
+                  // Price section
                   Row(
                     children: [
-                      // Quantity buttons
+                      // Original price (strikethrough if has discount)
+                      if (hasDiscount) ...[
+                        Text(
+                          '${(originalPrice / 1000).toStringAsFixed(0)}k',
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 13,
+                            decoration: TextDecoration.lineThrough,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+
+                      // Current price
+                      Text(
+                        '${(price / 1000).toStringAsFixed(0)}k',
+                        style: TextStyle(
+                          color: hasDiscount
+                              ? Colors.red.shade700
+                              : Colors.green.shade700,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Quantity controls and total
+                  Row(
+                    children: [
+                      // Quantity controls
                       Container(
                         decoration: BoxDecoration(
                           border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.circular(6),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            IconButton(
-                              onPressed: quantity > 1
+                            InkWell(
+                              onTap: quantity > 1
                                   ? () => onQuantityChanged(
                                       cartItemId, quantity - 1)
                                   : null,
-                              icon: const Icon(Icons.remove, size: 16),
-                              constraints: const BoxConstraints(
-                                minWidth: 32,
-                                minHeight: 32,
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                child: Icon(
+                                  Icons.remove,
+                                  size: 18,
+                                  color:
+                                      quantity > 1 ? Colors.blue : Colors.grey,
+                                ),
                               ),
-                              padding: EdgeInsets.zero,
                             ),
                             Container(
-                              width: 40,
-                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
                               decoration: BoxDecoration(
                                 border: Border.symmetric(
                                   vertical:
@@ -142,46 +214,66 @@ class CartListWidget extends StatelessWidget {
                               ),
                               child: Text(
                                 '$quantity',
-                                textAlign: TextAlign.center,
                                 style: const TextStyle(
-                                    fontWeight: FontWeight.bold),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
                               ),
                             ),
-                            IconButton(
-                              onPressed: () =>
+                            InkWell(
+                              onTap: () =>
                                   onQuantityChanged(cartItemId, quantity + 1),
-                              icon: const Icon(Icons.add, size: 16),
-                              constraints: const BoxConstraints(
-                                minWidth: 32,
-                                minHeight: 32,
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                child: const Icon(
+                                  Icons.add,
+                                  size: 18,
+                                  color: Colors.blue,
+                                ),
                               ),
-                              padding: EdgeInsets.zero,
                             ),
                           ],
                         ),
                       ),
                       const Spacer(),
 
-                      // Total price - format properly
-                      Text(
-                        '${(totalPrice / 1000).toStringAsFixed(0)}k',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: Colors.blue,
-                        ),
+                      // Total price
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            'Tổng',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          Text(
+                            '${(totalPrice / 1000).toStringAsFixed(0)}k',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 17,
+                              color: Colors.green,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 4),
 
             // Remove button
             IconButton(
               onPressed: () => onRemoveItem(cartItemId),
-              icon: const Icon(Icons.delete_outline, color: Colors.red),
+              icon: Icon(Icons.delete_outline, color: Colors.red.shade400),
+              constraints: const BoxConstraints(
+                minWidth: 36,
+                minHeight: 36,
+              ),
+              padding: EdgeInsets.zero,
             ),
           ],
         ),

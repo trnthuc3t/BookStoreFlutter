@@ -449,7 +449,18 @@ class _CartScreenState extends State<CartScreen> {
     final cartProvider = Provider.of<CartApiProvider>(context, listen: false);
 
     if (authProvider.currentUser?.id != null) {
+      // Clear cache và force refresh từ server
+      await cartProvider.clearCache();
       await cartProvider.refresh(authProvider.currentUser!.id!);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đã cập nhật giỏ hàng'),
+            duration: Duration(seconds: 1),
+          ),
+        );
+      }
     }
   }
 
