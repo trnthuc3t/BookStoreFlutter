@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
-import '../providers/cart_provider.dart';
+import '../providers/auth_provider_new.dart';
+import '../providers/cart_provider_new.dart';
 import 'home_tab.dart';
 import 'product_tab.dart';
 import 'history_tab.dart';
 import 'account_tab.dart';
 import 'chat_screen.dart';
-import 'cart_screen.dart';
-import 'admin/admin_login_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -43,10 +41,10 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _loadData() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final cartProvider = Provider.of<CartProvider>(context, listen: false);
-    
-    if (authProvider.currentUser?.email != null) {
-      await cartProvider.loadCartItems(authProvider.currentUser!.email!);
+    final cartProvider = Provider.of<CartApiProvider>(context, listen: false);
+
+    if (authProvider.currentUser?.id != null) {
+      await cartProvider.loadCartItems(authProvider.currentUser!.id!);
     }
   }
 
@@ -98,40 +96,17 @@ class _MainScreenState extends State<MainScreen> {
           ),
         ],
       ),
-      floatingActionButton: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          // Admin Access Button
-          FloatingActionButton(
-            heroTag: "admin",
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => const AdminLoginScreen(),
-                ),
-              );
-            },
-            child: const Icon(Icons.admin_panel_settings),
-            backgroundColor: Colors.orange,
-            foregroundColor: Colors.white,
-            mini: true,
-          ),
-          const SizedBox(height: 8),
-          // Chat Button
-          FloatingActionButton(
-            heroTag: "chat",
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => const ChatScreen(),
-                ),
-              );
-            },
-            child: const Icon(Icons.chat),
-            backgroundColor: Colors.blue,
-            foregroundColor: Colors.white,
-          ),
-        ],
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => const ChatScreen(),
+            ),
+          );
+        },
+        backgroundColor: Colors.blue,
+        foregroundColor: Colors.white,
+        child: const Icon(Icons.chat),
       ),
     );
   }

@@ -3,7 +3,8 @@ import 'package:flutter/services.dart';
 
 class ZaloPayPlatformService {
   static const MethodChannel _channel = MethodChannel('zalopay_payment');
-  static const EventChannel _eventChannel = EventChannel('zalopay_payment_events');
+  static const EventChannel _eventChannel =
+      EventChannel('zalopay_payment_events');
 
   static Future<Map<String, dynamic>?> createOrder({
     required int amount,
@@ -23,15 +24,20 @@ class ZaloPayPlatformService {
     }
   }
 
-  static Future<bool> launchZaloPay(String orderUrl) async {
+  static Future<Map<String, dynamic>?> launchZaloPay(
+      String zpTransToken) async {
     try {
       final result = await _channel.invokeMethod('launchZaloPay', {
-        'orderUrl': orderUrl,
+        'zpTransToken': zpTransToken,
       });
-      return result as bool;
+
+      if (result is Map) {
+        return Map<String, dynamic>.from(result);
+      }
+      return null;
     } on PlatformException catch (e) {
       print('ZaloPay launch error: ${e.message}');
-      return false;
+      return null;
     }
   }
 
@@ -76,8 +82,8 @@ class ZaloPayPlatformService {
   }
 
   static Stream<Map<String, dynamic>> get paymentResultStream {
-    // Fallback stub để tránh treo khi native chưa implement EventChannel
-    // Trả về stream trống thay vì gọi native
-    return const Stream.empty();
+    return _eventChannel.receiveBroadcastStream().map((event) {
+      return Map<String, dynamic>.from(event as Map);
+    });
   }
 }

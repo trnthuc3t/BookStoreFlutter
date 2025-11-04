@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/chat_provider.dart';
-import '../providers/auth_provider.dart';
-import '../providers/product_provider.dart';
-import '../providers/order_provider.dart';
+import '../providers/auth_provider_new.dart' as api_auth;
+import '../providers/product_provider_new.dart' as api_providers;
+import '../providers/order_provider_new.dart' as api_order;
 import '../widgets/chat_message_bubble.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -31,15 +31,19 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _initializeChat() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final authProvider =
+        Provider.of<api_auth.AuthProvider>(context, listen: false);
     final chatProvider = Provider.of<ChatProvider>(context, listen: false);
-    final productProvider = Provider.of<ProductProvider>(context, listen: false);
-    final orderProvider = Provider.of<OrderProvider>(context, listen: false);
+    final productProvider =
+        Provider.of<api_providers.ProductApiProvider>(context, listen: false);
 
     if (authProvider.currentUser?.email != null) {
-      await chatProvider.initialize(authProvider.currentUser!.email!);
+      await chatProvider.initialize(
+        authProvider.currentUser!.email!,
+        userId: authProvider.currentUser?.id,
+      );
       await productProvider.loadProducts();
-      await orderProvider.loadUserOrders(authProvider.currentUser!.email!);
+      // Order loading will be handled when needed
     }
   }
 
@@ -47,10 +51,13 @@ class _ChatScreenState extends State<ChatScreen> {
     final message = _messageController.text.trim();
     if (message.isEmpty) return;
 
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final authProvider =
+        Provider.of<api_auth.AuthProvider>(context, listen: false);
     final chatProvider = Provider.of<ChatProvider>(context, listen: false);
-    final productProvider = Provider.of<ProductProvider>(context, listen: false);
-    final orderProvider = Provider.of<OrderProvider>(context, listen: false);
+    final productProvider =
+        Provider.of<api_providers.ProductApiProvider>(context, listen: false);
+    final orderProvider =
+        Provider.of<api_order.OrderProvider>(context, listen: false);
 
     _messageController.clear();
 
@@ -58,6 +65,7 @@ class _ChatScreenState extends State<ChatScreen> {
       await chatProvider.sendMessage(
         message,
         authProvider.currentUser!.email!,
+        userId: authProvider.currentUser?.id,
         productProvider: productProvider,
         orderProvider: orderProvider,
       );
@@ -88,7 +96,8 @@ class _ChatScreenState extends State<ChatScreen> {
                 context: context,
                 builder: (context) => AlertDialog(
                   title: const Text('Xóa lịch sử chat'),
-                  content: const Text('Bạn có chắc chắn muốn xóa toàn bộ lịch sử chat?'),
+                  content: const Text(
+                      'Bạn có chắc chắn muốn xóa toàn bộ lịch sử chat?'),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.of(context).pop(false),
@@ -103,11 +112,15 @@ class _ChatScreenState extends State<ChatScreen> {
               );
 
               if (confirmed == true) {
-                final authProvider = Provider.of<AuthProvider>(context, listen: false);
-                final chatProvider = Provider.of<ChatProvider>(context, listen: false);
-                
+                final authProvider =
+                    Provider.of<api_auth.AuthProvider>(context, listen: false);
+                final chatProvider =
+                    Provider.of<ChatProvider>(context, listen: false);
+
                 if (authProvider.currentUser?.email != null) {
-                  await chatProvider.clearChatHistory(authProvider.currentUser!.email!);
+                  await chatProvider.clearChatHistory(
+                    authProvider.currentUser!.email!,
+                  );
                 }
               }
             },
@@ -200,11 +213,33 @@ class _ChatScreenState extends State<ChatScreen> {
                 Expanded(
                   child: TextField(
                     controller: _messageController,
-                    decoration: const InputDecoration(
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 16,
+                    ),
+                    decoration: InputDecoration(
                       hintText: 'Nhập tin nhắn...',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 16,
+                      hintStyle: TextStyle(
+                        color: Colors.grey[500],
+                        fontSize: 16,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide:
+                            const BorderSide(color: Colors.blue, width: 2),
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
                         vertical: 12,
                       ),
                     ),
@@ -216,12 +251,18 @@ class _ChatScreenState extends State<ChatScreen> {
                 const SizedBox(width: 8),
                 Consumer<ChatProvider>(
                   builder: (context, chatProvider, child) {
-                    return IconButton(
-                      onPressed: chatProvider.isLoading ? null : _sendMessage,
-                      icon: const Icon(Icons.send),
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        foregroundColor: Colors.white,
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: chatProvider.isLoading
+                            ? Colors.grey[400]
+                            : Colors.blue,
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                        onPressed: chatProvider.isLoading ? null : _sendMessage,
+                        icon: const Icon(Icons.send_rounded),
+                        color: Colors.white,
+                        iconSize: 24,
                       ),
                     );
                   },

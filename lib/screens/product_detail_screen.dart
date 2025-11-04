@@ -3,11 +3,9 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import '../models/product.dart';
-import '../providers/cart_provider.dart';
-import '../providers/auth_provider.dart';
-import 'rating_review_screen.dart';
-import 'tracking_order_screen.dart';
-import 'receipt_order_screen.dart';
+import '../providers/cart_provider_new.dart';
+import '../providers/auth_provider_new.dart';
+import '../utils/image_utils.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final Product product;
@@ -41,7 +39,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               color: Colors.grey.shade100,
               child: widget.product.image != null
                   ? CachedNetworkImage(
-                      imageUrl: widget.product.image!,
+                      imageUrl:
+                          ImageUtils.normalizeImageUrl(widget.product.image!) ??
+                              '',
                       fit: BoxFit.cover,
                       placeholder: (context, url) => const Center(
                         child: CircularProgressIndicator(),
@@ -141,7 +141,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   if (widget.product.categoryName != null) ...[
                     Row(
                       children: [
-                        const Icon(Icons.category, size: 16, color: Colors.grey),
+                        const Icon(Icons.category,
+                            size: 16, color: Colors.grey),
                         const SizedBox(width: 8),
                         Text(
                           'Danh mục: ${widget.product.categoryName}',
@@ -253,22 +254,34 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   Future<void> _addToCart() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final cartProvider = Provider.of<CartProvider>(context, listen: false);
+    final cartProvider = Provider.of<CartApiProvider>(context, listen: false);
 
-    if (authProvider.currentUser?.email != null) {
-      await cartProvider.addToCart(
+    if (authProvider.currentUser?.id != null) {
+      final success = await cartProvider.addToCart(
         widget.product,
         _quantity,
-        authProvider.currentUser!.email!,
+        authProvider.currentUser!.id!,
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Đã thêm ${widget.product.name} vào giỏ hàng'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Đã thêm ${widget.product.name} vào giỏ hàng'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  cartProvider.errorMessage ?? 'Không thể thêm vào giỏ hàng'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
       }
     } else {
       if (mounted) {
@@ -276,6 +289,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           const SnackBar(
             content: Text('Vui lòng đăng nhập để thêm vào giỏ hàng'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 2),
           ),
         );
       }

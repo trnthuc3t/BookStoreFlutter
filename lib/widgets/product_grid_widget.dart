@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/product.dart';
+import '../utils/image_utils.dart';
 
 class ProductGridWidget extends StatelessWidget {
   final List<Product> products;
@@ -58,7 +59,9 @@ class ProductGridWidget extends StatelessWidget {
                       const BorderRadius.vertical(top: Radius.circular(8)),
                   child: product.image != null
                       ? CachedNetworkImage(
-                          imageUrl: product.image!,
+                          imageUrl:
+                              ImageUtils.normalizeImageUrl(product.image!) ??
+                                  '',
                           fit: BoxFit.cover,
                           placeholder: (context, url) => const Center(
                             child: CircularProgressIndicator(),
@@ -132,7 +135,8 @@ class ProductGridWidget extends StatelessWidget {
                         ),
                         if (product.sale > 0) ...[
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 4, vertical: 1),
                             decoration: BoxDecoration(
                               color: Colors.red,
                               borderRadius: BorderRadius.circular(3),

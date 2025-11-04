@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider_new.dart' as api_auth;
 import 'login_screen.dart';
 import 'main_screen.dart';
+import 'admin_main_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -41,9 +42,18 @@ class _SplashScreenState extends State<SplashScreen> {
       final authProvider =
           Provider.of<api_auth.AuthProvider>(context, listen: false);
       if (authProvider.isLoggedIn) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const MainScreen()),
-        );
+        // Check if user is admin
+        final isAdmin = authProvider.currentUser?.isAdmin ?? false;
+
+        if (isAdmin) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const AdminMainScreen()),
+          );
+        } else {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const MainScreen()),
+          );
+        }
       } else {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const LoginScreen()),
@@ -79,9 +89,20 @@ class _SplashScreenState extends State<SplashScreen> {
       if (!mounted) return;
 
       if (authProvider.isLoggedIn) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const MainScreen()),
-        );
+        // Check if user is admin
+        final isAdmin = authProvider.currentUser?.isAdmin ?? false;
+
+        print('🔐 Auto-login detected. User is ${isAdmin ? "ADMIN" : "USER"}');
+
+        if (isAdmin) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const AdminMainScreen()),
+          );
+        } else {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const MainScreen()),
+          );
+        }
       } else {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const LoginScreen()),

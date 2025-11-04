@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import '../providers/product_provider_new.dart' as api_providers;
-import '../providers/cart_provider.dart';
+import '../providers/cart_provider_new.dart';
 import '../widgets/product_grid_widget.dart';
+import '../utils/image_utils.dart';
 import 'product_detail_screen.dart';
 import 'cart_screen.dart';
 
@@ -24,9 +25,8 @@ class _HomeTabState extends State<HomeTab> {
   Future<void> _loadData() async {
     final productProvider =
         Provider.of<api_providers.ProductApiProvider>(context, listen: false);
-    // Only load if not already loaded (cached)
-    await productProvider.loadProducts(forceReload: false);
-    await productProvider.loadCategories(forceReload: false);
+    await productProvider.loadProducts();
+    await productProvider.loadCategories();
   }
 
   @override
@@ -35,7 +35,7 @@ class _HomeTabState extends State<HomeTab> {
       appBar: AppBar(
         title: const Text('BookSell'),
         actions: [
-          Consumer<CartProvider>(
+          Consumer<CartApiProvider>(
             builder: (context, cartProvider, child) {
               return Stack(
                 children: [
@@ -100,136 +100,182 @@ class _HomeTabState extends State<HomeTab> {
             );
           }
 
-          return SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Banner carousel
-                if (productProvider.featuredProducts.isNotEmpty)
-                  CarouselSlider(
-                    options: CarouselOptions(
-                      height: 200,
-                      autoPlay: true,
-                      autoPlayInterval: const Duration(seconds: 3),
-                      viewportFraction: 1.0,
-                    ),
-                    items:
-                        productProvider.featuredProducts.take(5).map((product) {
-                      return Container(
-                        width: double.infinity,
-                        margin: const EdgeInsets.symmetric(horizontal: 8),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
-                          image: product.image != null
-                              ? DecorationImage(
-                                  image: NetworkImage(product.image!),
-                                  fit: BoxFit.cover,
+          return RefreshIndicator(
+            onRefresh: _loadData,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Banner carousel
+                  if (productProvider.featuredProducts.isNotEmpty)
+                    CarouselSlider(
+                      options: CarouselOptions(
+                        height: 200,
+                        autoPlay: true,
+                        autoPlayInterval: const Duration(seconds: 3),
+                        viewportFraction: 1.0,
+                      ),
+                      items: productProvider.featuredProducts
+                          .take(5)
+                          .map((product) {
+                        // Normalize image URL to fix backslash issue
+                        final normalizedImageUrl =
+                            ImageUtils.normalizeImageUrl(product.image);
+
+                        return Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.symmetric(horizontal: 8),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            image: normalizedImageUrl != null
+                                ? DecorationImage(
+                                    image: NetworkImage(normalizedImageUrl),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
+                            color: Colors.grey.shade200,
+                          ),
+                          child: normalizedImageUrl == null
+                              ? const Center(
+                                  child: Icon(Icons.book,
+                                      size: 50, color: Colors.grey),
                                 )
-                              : null,
-                          color: Colors.grey.shade200,
-                        ),
-                        child: product.image == null
-                            ? const Center(
-                                child: Icon(Icons.book,
-                                    size: 50, color: Colors.grey),
-                              )
-                            : Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(8),
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.bottomCenter,
-                                    colors: [
-                                      Colors.transparent,
-                                      Colors.black.withOpacity(0.7),
-                                    ],
+                              : Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(8),
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [
+                                        Colors.transparent,
+                                        Colors.black.withOpacity(0.7),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                                child: Align(
-                                  alignment: Alignment.bottomLeft,
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(16),
-                                    child: Text(
-                                      product.name ?? '',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
+                                  child: Align(
+                                    alignment: Alignment.bottomLeft,
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(16),
+                                      child: Text(
+                                        product.name ?? '',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
-                              ),
-                      );
-                    }).toList(),
-                  ),
-                const SizedBox(height: 20),
+                        );
+                      }).toList(),
+                    ),
+                  const SizedBox(height: 20),
 
-                // Categories
-                if (productProvider.categories.isNotEmpty) ...[
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      'Danh mục',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                  // Categories
+                  if (productProvider.categories.isNotEmpty) ...[
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        'Danh mục',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    height: 100,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      height: 100,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: productProvider.categories.length,
+                        itemBuilder: (context, index) {
+                          final category = productProvider.categories[index];
+                          return Container(
+                            width: 80,
+                            margin: const EdgeInsets.only(right: 12),
+                            child: Column(
+                              children: [
+                                Container(
+                                  width: 60,
+                                  height: 60,
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade100,
+                                    borderRadius: BorderRadius.circular(30),
+                                  ),
+                                  child: const Icon(
+                                    Icons.book,
+                                    color: Colors.blue,
+                                    size: 30,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  category.name ?? '',
+                                  style: const TextStyle(fontSize: 12),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+
+                  // Featured products
+                  if (productProvider.featuredProducts.isNotEmpty) ...[
+                    Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: productProvider.categories.length,
-                      itemBuilder: (context, index) {
-                        final category = productProvider.categories[index];
-                        return Container(
-                          width: 80,
-                          margin: const EdgeInsets.only(right: 12),
-                          child: Column(
-                            children: [
-                              Container(
-                                width: 60,
-                                height: 60,
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.shade100,
-                                  borderRadius: BorderRadius.circular(30),
-                                ),
-                                child: const Icon(
-                                  Icons.book,
-                                  color: Colors.blue,
-                                  size: 30,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                category.name ?? '',
-                                style: const TextStyle(fontSize: 12),
-                                textAlign: TextAlign.center,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Sản phẩm nổi bật',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              // TODO: Navigate to all products
+                            },
+                            child: const Text('Xem tất cả'),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    ProductGridWidget(
+                      products:
+                          productProvider.featuredProducts.take(6).toList(),
+                      onProductTap: (product) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                ProductDetailScreen(product: product),
                           ),
                         );
                       },
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                ],
+                    const SizedBox(height: 20),
+                  ],
 
-                // Featured products
-                if (productProvider.featuredProducts.isNotEmpty) ...[
+                  // All products
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text(
-                          'Sản phẩm nổi bật',
+                          'Tất cả sản phẩm',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -246,7 +292,7 @@ class _HomeTabState extends State<HomeTab> {
                   ),
                   const SizedBox(height: 10),
                   ProductGridWidget(
-                    products: productProvider.featuredProducts.take(6).toList(),
+                    products: productProvider.products.take(6).toList(),
                     onProductTap: (product) {
                       Navigator.of(context).push(
                         MaterialPageRoute(
@@ -256,44 +302,8 @@ class _HomeTabState extends State<HomeTab> {
                       );
                     },
                   ),
-                  const SizedBox(height: 20),
                 ],
-
-                // All products
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Tất cả sản phẩm',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          // TODO: Navigate to all products
-                        },
-                        child: const Text('Xem tất cả'),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 10),
-                ProductGridWidget(
-                  products: productProvider.products.take(6).toList(),
-                  onProductTap: (product) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            ProductDetailScreen(product: product),
-                      ),
-                    );
-                  },
-                ),
-              ],
+              ),
             ),
           );
         },

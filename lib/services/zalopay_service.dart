@@ -1,20 +1,13 @@
-import 'dart:convert';
-import 'dart:io';
-import 'package:crypto/crypto.dart';
-import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';
-import '../constants/app_constants.dart';
 import 'zalopay_platform_service.dart';
 
 class ZaloPayService {
   static ZaloPayService? _instance;
   static ZaloPayService get instance => _instance ??= ZaloPayService._();
-  
+
   ZaloPayService._();
 
-  final http.Client _client = http.Client();
-
-  Future<Map<String, dynamic>> createOrder(int amountVnd, {String? description, String? orderId}) async {
+  Future<Map<String, dynamic>> createOrder(int amountVnd,
+      {String? description, String? orderId}) async {
     try {
       // Use Platform Channel for native implementation
       final result = await ZaloPayPlatformService.createOrder(
@@ -22,7 +15,7 @@ class ZaloPayService {
         description: description ?? 'Thanh toán đơn hàng',
         orderId: orderId ?? DateTime.now().millisecondsSinceEpoch.toString(),
       );
-      
+
       if (result != null) {
         return result;
       } else {
@@ -34,13 +27,13 @@ class ZaloPayService {
     }
   }
 
-  Future<bool> launchZaloPay(String orderUrl) async {
+  Future<Map<String, dynamic>?> launchZaloPay(String zpTransToken) async {
     try {
       // Use Platform Channel for native implementation
-      return await ZaloPayPlatformService.launchZaloPay(orderUrl);
+      return await ZaloPayPlatformService.launchZaloPay(zpTransToken);
     } catch (e) {
       print('Launch ZaloPay error: $e');
-      return false;
+      return null;
     }
   }
 
@@ -79,38 +72,7 @@ class ZaloPayService {
     }
   }
 
-  Stream<Map<String, dynamic>> get paymentResultStream {
-    return ZaloPayPlatformService.paymentResultStream;
-  }
-
-  Future<bool> handleDeepLink(String url) async {
-    if (url.startsWith(AppConstants.zalopayDeepLinkScheme)) {
-      // Handle ZaloPay callback
-      print('ZaloPay deep link received: $url');
-      // Parse the callback and handle payment result
-      return true;
-    }
-    return false;
-  }
-
-  String _hmacSha256(String key, String data) {
-    final keyBytes = utf8.encode(key);
-    final dataBytes = utf8.encode(data);
-    final hmac = Hmac(sha256, keyBytes);
-    final digest = hmac.convert(dataBytes);
-    return digest.toString();
-  }
-
-  String _getDatePart() {
-    final now = DateTime.now();
-    return '${now.year.toString().substring(2)}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
-  }
-
-  int _generateRandomNumber() {
-    return 100000 + (DateTime.now().millisecondsSinceEpoch % 900000);
-  }
-
   void dispose() {
-    _client.close();
+    // No-op: cleanup handled by platform channel
   }
 }

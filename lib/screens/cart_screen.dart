@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/cart_provider.dart';
-import '../providers/auth_provider.dart';
+import '../providers/cart_provider_new.dart';
+import '../providers/auth_provider_new.dart';
 import '../providers/order_provider.dart';
 import '../widgets/cart_list_widget.dart';
 import 'address_screen.dart';
@@ -30,11 +30,11 @@ class _CartScreenState extends State<CartScreen> {
 
   Future<void> _loadData() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final cartProvider = Provider.of<CartProvider>(context, listen: false);
+    final cartProvider = Provider.of<CartApiProvider>(context, listen: false);
     final orderProvider = Provider.of<OrderProvider>(context, listen: false);
 
-    if (authProvider.currentUser?.email != null) {
-      await cartProvider.loadCartItems(authProvider.currentUser!.email!);
+    if (authProvider.currentUser?.id != null) {
+      await cartProvider.loadCartItems(authProvider.currentUser!.id!);
       await orderProvider.loadVouchers();
     }
   }
@@ -45,60 +45,92 @@ class _CartScreenState extends State<CartScreen> {
       appBar: AppBar(
         title: const Text('Giỏ hàng'),
         actions: [
-          Consumer<CartProvider>(
+          Consumer<CartApiProvider>(
             builder: (context, cartProvider, child) {
-              return TextButton(
-                onPressed: cartProvider.cartItems.isEmpty
-                    ? null
-                    : () => _clearCart(),
-                child: const Text(
-                  'Xóa tất cả',
-                  style: TextStyle(color: Colors.red),
-                ),
+              return Row(
+                children: [
+                  // Refresh indicator
+                  if (cartProvider.isRefreshing)
+                    const Padding(
+                      padding: EdgeInsets.only(right: 8),
+                      child: SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                  TextButton(
+                    onPressed: cartProvider.cartItems.isEmpty
+                        ? null
+                        : () => _clearCart(),
+                    child: const Text(
+                      'Xóa tất cả',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                  ),
+                ],
               );
             },
           ),
         ],
       ),
-      body: Consumer<CartProvider>(
+      body: Consumer<CartApiProvider>(
         builder: (context, cartProvider, child) {
-          if (cartProvider.isLoading) {
+          if (cartProvider.isLoading && cartProvider.cartItems.isEmpty) {
             return const Center(child: CircularProgressIndicator());
           }
 
           if (cartProvider.cartItems.isEmpty) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.shopping_cart_outlined, size: 100, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text(
-                    'Giỏ hàng trống',
-                    style: TextStyle(fontSize: 18, color: Colors.grey),
+            return RefreshIndicator(
+              onRefresh: () => _refreshCart(),
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: SizedBox(
+                  height: MediaQuery.of(context).size.height - 200,
+                  child: const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.shopping_cart_outlined,
+                            size: 100, color: Colors.grey),
+                        SizedBox(height: 16),
+                        Text(
+                          'Giỏ hàng trống',
+                          style: TextStyle(fontSize: 18, color: Colors.grey),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'Hãy thêm sản phẩm vào giỏ hàng',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'Kéo xuống để làm mới',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                      ],
+                    ),
                   ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Hãy thêm sản phẩm vào giỏ hàng',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ],
+                ),
               ),
             );
           }
 
           return Column(
             children: [
-              // Cart items list
+              // Cart items list with pull-to-refresh
               Expanded(
-                child: CartListWidget(
-                  cartItems: cartProvider.cartItems,
-                  onQuantityChanged: (productId, quantity) {
-                    _updateQuantity(productId, quantity);
-                  },
-                  onRemoveItem: (productId) {
-                    _removeItem(productId);
-                  },
+                child: RefreshIndicator(
+                  onRefresh: () => _refreshCart(),
+                  child: CartListWidget(
+                    cartItems: cartProvider.cartItems,
+                    onQuantityChanged: (productId, quantity) {
+                      _updateQuantity(productId, quantity);
+                    },
+                    onRemoveItem: (productId) {
+                      _removeItem(productId);
+                    },
+                  ),
                 ),
               ),
 
@@ -218,9 +250,8 @@ class _CartScreenState extends State<CartScreen> {
                   Text(
                     _selectedAddress ?? 'Chọn địa chỉ giao hàng',
                     style: TextStyle(
-                      color: _selectedAddress != null
-                          ? Colors.black
-                          : Colors.grey,
+                      color:
+                          _selectedAddress != null ? Colors.black : Colors.grey,
                     ),
                   ),
                 ],
@@ -257,9 +288,8 @@ class _CartScreenState extends State<CartScreen> {
                   Text(
                     _selectedVoucher ?? 'Chọn voucher (không bắt buộc)',
                     style: TextStyle(
-                      color: _selectedVoucher != null
-                          ? Colors.black
-                          : Colors.grey,
+                      color:
+                          _selectedVoucher != null ? Colors.black : Colors.grey,
                     ),
                   ),
                 ],
@@ -272,7 +302,7 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
-  Widget _buildPriceSummary(CartProvider cartProvider) {
+  Widget _buildPriceSummary(CartApiProvider cartProvider) {
     final subtotal = cartProvider.totalPrice;
     final total = subtotal - _voucherDiscount;
 
@@ -291,7 +321,8 @@ class _CartScreenState extends State<CartScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('Giảm giá:'),
-              Text('-${_voucherDiscount}k', style: TextStyle(color: Colors.green)),
+              Text('-${_voucherDiscount}k',
+                  style: TextStyle(color: Colors.green)),
             ],
           ),
         ],
@@ -358,27 +389,27 @@ class _CartScreenState extends State<CartScreen> {
     }
   }
 
-  Future<void> _updateQuantity(int productId, int quantity) async {
+  Future<void> _updateQuantity(int cartItemId, int quantity) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final cartProvider = Provider.of<CartProvider>(context, listen: false);
+    final cartProvider = Provider.of<CartApiProvider>(context, listen: false);
 
-    if (authProvider.currentUser?.email != null) {
+    if (authProvider.currentUser?.id != null) {
       await cartProvider.updateQuantity(
-        productId,
+        cartItemId,
         quantity,
-        authProvider.currentUser!.email!,
+        authProvider.currentUser!.id!,
       );
     }
   }
 
-  Future<void> _removeItem(int productId) async {
+  Future<void> _removeItem(int cartItemId) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final cartProvider = Provider.of<CartProvider>(context, listen: false);
+    final cartProvider = Provider.of<CartApiProvider>(context, listen: false);
 
-    if (authProvider.currentUser?.email != null) {
+    if (authProvider.currentUser?.id != null) {
       await cartProvider.removeFromCart(
-        productId,
-        authProvider.currentUser!.email!,
+        cartItemId,
+        authProvider.currentUser!.id!,
       );
     }
   }
@@ -388,7 +419,8 @@ class _CartScreenState extends State<CartScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Xóa giỏ hàng'),
-        content: const Text('Bạn có chắc chắn muốn xóa tất cả sản phẩm trong giỏ hàng?'),
+        content: const Text(
+            'Bạn có chắc chắn muốn xóa tất cả sản phẩm trong giỏ hàng?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -404,19 +436,28 @@ class _CartScreenState extends State<CartScreen> {
 
     if (confirmed == true) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final cartProvider = Provider.of<CartProvider>(context, listen: false);
+      final cartProvider = Provider.of<CartApiProvider>(context, listen: false);
 
-      if (authProvider.currentUser?.email != null) {
-        await cartProvider.clearCart(authProvider.currentUser!.email!);
+      if (authProvider.currentUser?.id != null) {
+        await cartProvider.clearCart(authProvider.currentUser!.id!);
       }
+    }
+  }
+
+  Future<void> _refreshCart() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final cartProvider = Provider.of<CartApiProvider>(context, listen: false);
+
+    if (authProvider.currentUser?.id != null) {
+      await cartProvider.refresh(authProvider.currentUser!.id!);
     }
   }
 
   Future<void> _checkout() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final cartProvider = Provider.of<CartProvider>(context, listen: false);
+    final cartProvider = Provider.of<CartApiProvider>(context, listen: false);
 
-    if (authProvider.currentUser?.email != null) {
+    if (authProvider.currentUser?.id != null) {
       // Navigate to payment screen
       await Navigator.of(context).push(
         MaterialPageRoute(
@@ -429,6 +470,11 @@ class _CartScreenState extends State<CartScreen> {
           ),
         ),
       );
+
+      // Refresh cart after returning from payment
+      if (mounted) {
+        await _refreshCart();
+      }
     }
   }
 }

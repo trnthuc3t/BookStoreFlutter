@@ -1,13 +1,27 @@
+// ================================
+// PUBLIC CONFIG FILE - ĐƯỢC COMMIT LÊN GIT
+// ================================
+// File này import từ config_secret.dart (file secret không được commit)
+// Nếu không tìm thấy config_secret.dart, app sẽ báo lỗi compile
+//
+// Để setup:
+// 1. Copy config_secret_example.dart thành config_secret.dart
+// 2. Điền các giá trị thật của bạn vào config_secret.dart
+// 3. File config_secret.dart đã được thêm vào .gitignore
+
+import 'config_secret.dart';
+
 class Config {
   // Gemini API Configuration
-  static const String geminiApiKey = 'YOUR_GEMINI_API_KEY_HERE';
-  
+  static const String geminiApiKey = ConfigSecret.geminiApiKey;
+
   // Firebase Configuration
-  static const String firebaseUrl = 'https://booksell-cfee0-default-rtdb.firebaseio.com';
-  
+  static const String firebaseUrl = ConfigSecret.firebaseUrl;
+
   // ZaloPay Configuration
-  static const int zalopayAppId = 553;
-  static const String zalopayKey1 = '9phuAOYhan4urywHTh0ndEXiV3pKHr5Q';
-  static const String zalopayCreateUrl = 'https://sandbox.zalopay.com.vn/v001/tpe/createorder';
-  static const String zalopayDeepLinkScheme = 'merchant-deeplink://app';
+  static const int zalopayAppId = ConfigSecret.zalopayAppId;
+  static const String zalopayKey1 = ConfigSecret.zalopayKey1;
+  static const String zalopayCreateUrl = ConfigSecret.zalopayCreateUrl;
+  static const String zalopayDeepLinkScheme =
+      ConfigSecret.zalopayDeepLinkScheme;
 }

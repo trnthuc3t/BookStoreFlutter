@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'providers/auth_provider_new.dart' as api_auth; // API-based auth
-import 'providers/cart_provider.dart';
+import 'providers/cart_provider_new.dart';
 import 'providers/product_provider_new.dart'
     as api_providers; // API-based provider
-import 'providers/order_provider.dart';
+import 'providers/order_provider_new.dart' as api_order; // API-based order
 import 'providers/chat_provider.dart';
 import 'services/firebase_service.dart';
 import 'services/database_service.dart';
@@ -53,11 +53,13 @@ class BookSellApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(
             create: (_) => api_auth.AuthProvider()), // Use API auth
-        ChangeNotifierProvider(create: (_) => CartProvider()),
+        ChangeNotifierProvider(
+            create: (_) => CartApiProvider()), // Use API cart
         ChangeNotifierProvider(
             create: (_) =>
                 api_providers.ProductApiProvider()), // Use API provider
-        ChangeNotifierProvider(create: (_) => OrderProvider()),
+        ChangeNotifierProvider(
+            create: (_) => api_order.OrderProvider()), // Use API order
         ChangeNotifierProvider(create: (_) => ChatProvider()),
       ],
       child: MaterialApp(

@@ -52,6 +52,7 @@ dependencies:
   flutter_rating_bar: ^4.0.1
   intl: ^0.18.1
   url_launcher: ^6.2.2
+  image_picker: ^1.0.7
 
   # Security
   crypto: ^3.0.3

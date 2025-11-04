@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../utils/image_utils.dart';
 
 class CartListWidget extends StatelessWidget {
   final List<Map<String, dynamic>> cartItems;
@@ -26,15 +27,24 @@ class CartListWidget extends StatelessWidget {
   }
 
   Widget _buildCartItem(BuildContext context, Map<String, dynamic> item) {
-    final productId = item['product_id'] as int;
-    final name = item['name'] as String? ?? '';
-    final price = item['price'] as int? ?? 0;
-    final sale = item['sale'] as int? ?? 0;
-    final image = item['image'] as String?;
-    final quantity = item['quantity'] as int? ?? 1;
+    // Map API response fields to widget fields
+    final cartItemId =
+        item['id'] as int? ?? 0; // cart_item_id for update/delete
+    final bookId = item['book_id'] as int? ?? 0;
+    final name = item['book_title'] as String? ?? '';
 
-    final realPrice = sale > 0 ? price - (price * sale / 100) : price;
-    final totalPrice = realPrice * quantity;
+    // Handle price - API returns double
+    final priceValue = item['book_price'];
+    final price = priceValue != null ? (priceValue as num).toInt() : 0;
+
+    final sale = 0; // API doesn't return sale info in cart
+    final image = item['book_image'] as String?; // May not exist in cart API
+
+    final quantityValue = item['quantity'];
+    final quantity = quantityValue != null ? (quantityValue as num).toInt() : 1;
+
+    final realPrice = price; // No sale in cart
+    final totalPrice = (realPrice * quantity).toInt();
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -54,7 +64,7 @@ class CartListWidget extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
                 child: image != null
                     ? CachedNetworkImage(
-                        imageUrl: image,
+                        imageUrl: ImageUtils.normalizeImageUrl(image) ?? '',
                         fit: BoxFit.cover,
                         placeholder: (context, url) => const Center(
                           child: CircularProgressIndicator(),
@@ -85,45 +95,15 @@ class CartListWidget extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
-                  
-                  // Price
-                  Row(
-                    children: [
-                      Text(
-                        '${realPrice}k',
-                        style: const TextStyle(
-                          color: Colors.blue,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      if (sale > 0) ...[
-                        const SizedBox(width: 8),
-                        Text(
-                          '${price}k',
-                          style: const TextStyle(
-                            decoration: TextDecoration.lineThrough,
-                            color: Colors.grey,
-                            fontSize: 12,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.red,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            '-$sale%',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
+
+                  // Price - format to show properly
+                  Text(
+                    '${(price / 1000).toStringAsFixed(0)}k',
+                    style: const TextStyle(
+                      color: Colors.blue,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
                   ),
                   const SizedBox(height: 8),
 
@@ -141,7 +121,8 @@ class CartListWidget extends StatelessWidget {
                           children: [
                             IconButton(
                               onPressed: quantity > 1
-                                  ? () => onQuantityChanged(productId, quantity - 1)
+                                  ? () => onQuantityChanged(
+                                      cartItemId, quantity - 1)
                                   : null,
                               icon: const Icon(Icons.remove, size: 16),
                               constraints: const BoxConstraints(
@@ -155,17 +136,20 @@ class CartListWidget extends StatelessWidget {
                               padding: const EdgeInsets.symmetric(vertical: 8),
                               decoration: BoxDecoration(
                                 border: Border.symmetric(
-                                  vertical: BorderSide(color: Colors.grey.shade300),
+                                  vertical:
+                                      BorderSide(color: Colors.grey.shade300),
                                 ),
                               ),
                               child: Text(
                                 '$quantity',
                                 textAlign: TextAlign.center,
-                                style: const TextStyle(fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold),
                               ),
                             ),
                             IconButton(
-                              onPressed: () => onQuantityChanged(productId, quantity + 1),
+                              onPressed: () =>
+                                  onQuantityChanged(cartItemId, quantity + 1),
                               icon: const Icon(Icons.add, size: 16),
                               constraints: const BoxConstraints(
                                 minWidth: 32,
@@ -177,10 +161,10 @@ class CartListWidget extends StatelessWidget {
                         ),
                       ),
                       const Spacer(),
-                      
-                      // Total price
+
+                      // Total price - format properly
                       Text(
-                        '${totalPrice}k',
+                        '${(totalPrice / 1000).toStringAsFixed(0)}k',
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
@@ -196,7 +180,7 @@ class CartListWidget extends StatelessWidget {
 
             // Remove button
             IconButton(
-              onPressed: () => onRemoveItem(productId),
+              onPressed: () => onRemoveItem(cartItemId),
               icon: const Icon(Icons.delete_outline, color: Colors.red),
             ),
           ],

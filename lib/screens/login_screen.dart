@@ -4,6 +4,7 @@ import '../providers/auth_provider_new.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
 import 'main_screen.dart';
+import 'admin_main_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -37,7 +38,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      
+
       final success = await authProvider.signIn(
         _usernameController.text.trim(),
         _passwordController.text,
@@ -46,9 +47,20 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       if (success) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const MainScreen()),
-        );
+        // Check if user is admin and navigate to appropriate screen
+        final isAdmin = authProvider.currentUser?.isAdmin ?? false;
+
+        if (isAdmin) {
+          // Navigate to Admin Panel
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const AdminMainScreen()),
+          );
+        } else {
+          // Navigate to regular Main Screen
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const MainScreen()),
+          );
+        }
       } else {
         setState(() {
           _errorMessage = authProvider.errorMessage ?? 'Đăng nhập thất bại';
