@@ -1,0 +1,979 @@
+import 'package:flutter/material.dart';
+import 'package:carousel_slider/carousel_slider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_rating_bar/flutter_rating_bar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../services/api_service.dart';
+import '../utils/image_utils.dart';
+
+class ProductDetailApiScreen extends StatefulWidget {
+  final int bookId;
+
+  const ProductDetailApiScreen({
+    super.key,
+    required this.bookId,
+  });
+
+  @override
+  State<ProductDetailApiScreen> createState() => _ProductDetailApiScreenState();
+}
+
+class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
+    with AutomaticKeepAliveClientMixin {
+  int _quantity = 1;
+  int _currentImageIndex = 0;
+  bool _isLoading = true;
+  bool _showFullDescription = false;
+  bool _showAllReviews = false;
+
+  Map<String, dynamic>? _bookData;
+  List<dynamic>? _reviewsData;
+  List<String> _imageUrls = [];
+
+  // Static cache for book details (shared across all instances)
+  static final Map<int, Map<String, dynamic>> _bookCache = {};
+  static final Map<int, List<dynamic>> _reviewsCache = {};
+  static final Map<int, DateTime> _cacheTimestamps = {};
+  static const _cacheExpiry = Duration(minutes: 10); // Cache for 10 minutes
+
+  @override
+  bool get wantKeepAlive => true; // Keep state alive
+
+  // Static method to clear cache for specific book or all books
+  static void clearCache([int? bookId]) {
+    if (bookId != null) {
+      _bookCache.remove(bookId);
+      _reviewsCache.remove(bookId);
+      _cacheTimestamps.remove(bookId);
+      print('🗑️ Cleared cache for book #$bookId');
+    } else {
+      _bookCache.clear();
+      _reviewsCache.clear();
+      _cacheTimestamps.clear();
+      print('🗑️ Cleared all book cache');
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBookData();
+  }
+
+  Future<void> _loadBookData({bool forceReload = false}) async {
+    setState(() => _isLoading = true);
+
+    try {
+      // Check cache first
+      final now = DateTime.now();
+      final cacheTimestamp = _cacheTimestamps[widget.bookId];
+      final isCacheValid = !forceReload &&
+          cacheTimestamp != null &&
+          now.difference(cacheTimestamp) < _cacheExpiry;
+
+      Map<String, dynamic>? bookData;
+      List<dynamic>? reviewsData;
+
+      if (isCacheValid && _bookCache.containsKey(widget.bookId)) {
+        print('✅ Using cached book data for book #${widget.bookId}');
+        bookData = _bookCache[widget.bookId];
+        reviewsData = _reviewsCache[widget.bookId];
+      } else {
+        print(
+            '📥 Fetching book data and reviews in parallel for book #${widget.bookId}...');
+
+        // Load book details AND reviews in parallel
+        final results = await Future.wait([
+          ApiService.getBook(widget.bookId),
+          ApiService.getBookReviews(bookId: widget.bookId, limit: 20),
+        ]);
+
+        bookData = results[0] as Map<String, dynamic>?;
+        reviewsData = results[1] as List<dynamic>;
+
+        print(
+            '✅ Loaded book data and ${reviewsData.length} reviews in parallel');
+
+        // Store in cache
+        if (bookData != null) {
+          _bookCache[widget.bookId] = bookData;
+          _reviewsCache[widget.bookId] = reviewsData;
+          _cacheTimestamps[widget.bookId] = now;
+          print('💾 Cached book #${widget.bookId} with reviews');
+        }
+      }
+
+      // Set state for both cached and freshly loaded data
+      if (mounted) {
+        setState(() {
+          _bookData = bookData;
+          _reviewsData = reviewsData;
+
+          // Extract image URLs
+          if (bookData != null && bookData['images'] != null) {
+            final images = bookData['images'] as List<dynamic>;
+            _imageUrls = images.map((img) {
+              final url = img['image_url'] ?? img['url'];
+              return ImageUtils.normalizeImageUrl(url) ?? url as String;
+            }).toList();
+          }
+
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('❌ Error loading book data: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _loadReviews() async {
+    try {
+      print('📥 Lazy loading reviews for book #${widget.bookId}...');
+      final reviewsData = await ApiService.getBookReviews(
+        bookId: widget.bookId,
+        limit: 20, // Reduced limit for faster load
+      );
+
+      print('📊 Reviews data received: ${reviewsData.length} items');
+      if (reviewsData.isNotEmpty) {
+        print('📊 First review: ${reviewsData[0]}');
+      }
+
+      if (mounted) {
+        setState(() {
+          _reviewsData = reviewsData;
+          _reviewsCache[widget.bookId] = reviewsData;
+        });
+        print(
+            '✅ Reviews loaded and set to state: ${_reviewsData?.length} reviews');
+      }
+    } catch (e) {
+      print('❌ Error loading reviews: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
+
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Chi tiết sản phẩm')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_bookData == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Chi tiết sản phẩm')),
+        body: const Center(child: Text('Không thể tải thông tin sản phẩm')),
+      );
+    }
+
+    final title = _bookData!['title'] ?? 'N/A';
+    final price = (_bookData!['price'] ?? 0) / 1000;
+    final originalPrice = _bookData!['original_price'] != null
+        ? _bookData!['original_price'] / 1000
+        : null;
+    final discountPercentage = _bookData!['discount_percentage'] ?? 0;
+    final stockQuantity = _bookData!['stock_quantity'] ?? 0;
+    final soldQuantity = _bookData!['sold_quantity'] ?? 0;
+    final ratingAverage = (_bookData!['rating_average'] ?? 0.0).toDouble();
+    final ratingCount = _bookData!['rating_count'] ?? 0;
+    final description = _bookData!['description'] ?? '';
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Chi tiết sản phẩm'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => _loadBookData(forceReload: true),
+            tooltip: 'Làm mới',
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: () => _loadBookData(forceReload: true),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Image Carousel with Indicator
+              _buildImageCarousel(stockQuantity),
+
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Product name
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Rating and Sold Quantity
+                    Row(
+                      children: [
+                        RatingBarIndicator(
+                          rating: ratingAverage,
+                          itemBuilder: (context, index) => const Icon(
+                            Icons.star,
+                            color: Colors.amber,
+                          ),
+                          itemCount: 5,
+                          itemSize: 20,
+                          direction: Axis.horizontal,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '$ratingAverage ($ratingCount đánh giá)',
+                          style: const TextStyle(color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Đã bán: $soldQuantity',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Book Details (Authors, Cover Type, Dimensions)
+                    _buildBookDetails(),
+                    const SizedBox(height: 16),
+
+                    // Price
+                    Row(
+                      children: [
+                        Text(
+                          '${price.toStringAsFixed(0)}k',
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
+                          ),
+                        ),
+                        if (discountPercentage > 0 &&
+                            originalPrice != null) ...[
+                          const SizedBox(width: 12),
+                          Text(
+                            '${originalPrice.toStringAsFixed(0)}k',
+                            style: const TextStyle(
+                              decoration: TextDecoration.lineThrough,
+                              color: Colors.grey,
+                              fontSize: 18,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '-${discountPercentage.toInt()}%',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Description with show more
+                    _buildDescription(description),
+                    const SizedBox(height: 24),
+
+                    // Reviews Section
+                    _buildReviewsSection(),
+                    const SizedBox(height: 24),
+
+                    // Quantity selector
+                    const Text(
+                      'Số lượng',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        IconButton(
+                          onPressed: stockQuantity > 0 && _quantity > 1
+                              ? () => setState(() => _quantity--)
+                              : null,
+                          icon: const Icon(Icons.remove),
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.grey.shade200,
+                          ),
+                        ),
+                        Container(
+                          width: 60,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '$_quantity',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: stockQuantity > 0
+                              ? () => setState(() => _quantity++)
+                              : null,
+                          icon: const Icon(Icons.add),
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.grey.shade200,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Add to cart button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed:
+                            stockQuantity > 0 ? () => _addToCart() : null,
+                        icon: const Icon(Icons.shopping_cart),
+                        label: Text(
+                          stockQuantity > 0 ? 'Thêm vào giỏ hàng' : 'Hết hàng',
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          backgroundColor:
+                              stockQuantity > 0 ? null : Colors.grey,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImageCarousel(int stockQuantity) {
+    if (_imageUrls.isEmpty) {
+      return Container(
+        height: 300,
+        color: Colors.grey.shade200,
+        child: const Center(
+          child: Icon(Icons.book, size: 100, color: Colors.grey),
+        ),
+      );
+    }
+
+    return Stack(
+      children: [
+        CarouselSlider(
+          options: CarouselOptions(
+            height: 300,
+            viewportFraction: 1.0,
+            enableInfiniteScroll: _imageUrls.length > 1,
+            onPageChanged: (index, reason) {
+              setState(() => _currentImageIndex = index);
+            },
+          ),
+          items: _imageUrls.map((url) {
+            return CachedNetworkImage(
+              imageUrl: url,
+              height: 300,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              placeholder: (context, url) => const Center(
+                child: CircularProgressIndicator(),
+              ),
+              errorWidget: (context, url, error) => Container(
+                color: Colors.grey.shade200,
+                child: const Icon(Icons.book, size: 100),
+              ),
+            );
+          }).toList(),
+        ),
+
+        // Image indicator
+        if (_imageUrls.length > 1)
+          Positioned(
+            bottom: 16,
+            right: 16,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                '${_currentImageIndex + 1}/${_imageUrls.length}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+
+        // Out of stock overlay
+        if (stockQuantity <= 0)
+          Positioned.fill(
+            child: Container(
+              color: Colors.black.withOpacity(0.6),
+              child: Center(
+                child: Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.95),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.red, width: 3),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      'HẾT\nHÀNG',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                        height: 1.2,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildBookDetails() {
+    if (_bookData == null) return const SizedBox();
+
+    final authors = _bookData!['authors'] as List<dynamic>?;
+    final coverType = _bookData!['cover_type'] as String?;
+    final length = _bookData!['length'] as num?;
+    final width = _bookData!['width'] as num?;
+    final thickness = _bookData!['thickness'] as num?;
+
+    // Nếu không có thông tin gì thì không hiển thị
+    if ((authors == null || authors.isEmpty) &&
+        coverType == null &&
+        length == null &&
+        width == null &&
+        thickness == null) {
+      return const SizedBox();
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.blue.shade100),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Icon(Icons.info_outline, size: 20, color: Colors.blue),
+              SizedBox(width: 8),
+              Text(
+                'Thông tin chi tiết',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Authors
+          if (authors != null && authors.isNotEmpty) ...[
+            _buildDetailRow(
+              icon: Icons.person,
+              label: 'Tác giả',
+              value: authors.map((a) => a['name']).join(', '),
+            ),
+            const SizedBox(height: 8),
+          ],
+
+          // Cover Type
+          if (coverType != null && coverType.isNotEmpty) ...[
+            _buildDetailRow(
+              icon: Icons.book,
+              label: 'Loại bìa',
+              value: _getCoverTypeLabel(coverType),
+            ),
+            const SizedBox(height: 8),
+          ],
+
+          // Dimensions
+          if (length != null || width != null || thickness != null) ...[
+            _buildDetailRow(
+              icon: Icons.straighten,
+              label: 'Kích thước',
+              value: _formatDimensions(length, width, thickness),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: Colors.grey.shade700),
+        const SizedBox(width: 8),
+        Expanded(
+          child: RichText(
+            text: TextSpan(
+              style: const TextStyle(fontSize: 15, color: Colors.black87),
+              children: [
+                TextSpan(
+                  text: '$label: ',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                TextSpan(
+                  text: value,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.normal,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _getCoverTypeLabel(String coverType) {
+    switch (coverType.toLowerCase()) {
+      case 'paperback':
+        return 'Bìa mềm';
+      case 'hardcover':
+        return 'Bìa cứng';
+      default:
+        return coverType;
+    }
+  }
+
+  String _formatDimensions(num? length, num? width, num? thickness) {
+    final parts = <String>[];
+    if (length != null) parts.add('${length.toStringAsFixed(1)} cm');
+    if (width != null) parts.add('${width.toStringAsFixed(1)} cm');
+    if (thickness != null) parts.add('${thickness.toStringAsFixed(1)} cm');
+
+    return parts.isNotEmpty ? parts.join(' × ') : 'Không có thông tin';
+  }
+
+  Widget _buildDescription(String description) {
+    if (description.isEmpty) return const SizedBox();
+
+    final lines = description.split('\n');
+    final shouldCollapse = lines.length > 4 || description.length > 200;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Icon(Icons.description, size: 20, color: Colors.blue),
+              SizedBox(width: 8),
+              Text(
+                'Mô tả sản phẩm',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            description,
+            style: const TextStyle(
+              fontSize: 15,
+              height: 1.5,
+              color: Colors.black87,
+            ),
+            maxLines: _showFullDescription ? null : 4,
+            overflow: _showFullDescription ? null : TextOverflow.ellipsis,
+          ),
+          if (shouldCollapse)
+            Center(
+              child: TextButton.icon(
+                onPressed: () {
+                  setState(() => _showFullDescription = !_showFullDescription);
+                },
+                icon: Icon(
+                  _showFullDescription
+                      ? Icons.keyboard_arrow_up
+                      : Icons.keyboard_arrow_down,
+                  size: 18,
+                ),
+                label: Text(_showFullDescription ? 'Thu gọn' : 'Xem thêm'),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.blue,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReviewsSection() {
+    // Reviews are now loaded with book data in parallel, no need for loading state
+    if (_reviewsData == null || _reviewsData!.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Row(
+          children: const [
+            Icon(Icons.rate_review, size: 20, color: Colors.grey),
+            SizedBox(width: 8),
+            Text(
+              'Chưa có đánh giá nào',
+              style: TextStyle(
+                fontSize: 15,
+                color: Colors.grey,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final reviews = _reviewsData!;
+    final displayReviews = _showAllReviews ? reviews : reviews.take(2).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.rate_review, size: 20, color: Colors.blue),
+            const SizedBox(width: 8),
+            const Text(
+              'Đánh giá',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                '${reviews.length} đánh giá',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue.shade700,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ...displayReviews.map((review) => _buildReviewItem(review)),
+        if (reviews.length > 2 && !_showAllReviews)
+          Center(
+            child: TextButton.icon(
+              onPressed: () {
+                setState(() => _showAllReviews = true);
+              },
+              icon: const Icon(Icons.keyboard_arrow_down, size: 18),
+              label: Text('Xem thêm ${reviews.length - 2} bình luận'),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.blue,
+              ),
+            ),
+          ),
+        if (_showAllReviews && reviews.length > 2)
+          Center(
+            child: TextButton.icon(
+              onPressed: () {
+                setState(() => _showAllReviews = false);
+              },
+              icon: const Icon(Icons.keyboard_arrow_up, size: 18),
+              label: const Text('Thu gọn'),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.blue,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildReviewItem(Map<String, dynamic> review) {
+    final userName = review['user_name'] ?? 'Anonymous';
+    final rating = (review['rating'] ?? 5).toDouble();
+    final comment = review['comment'] ?? '';
+    final createdAt = review['created_at'];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.shade100,
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 22,
+                backgroundColor: Colors.blue.shade100,
+                child: Text(
+                  userName[0].toUpperCase(),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue.shade700,
+                    fontSize: 18,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      userName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        RatingBarIndicator(
+                          rating: rating,
+                          itemBuilder: (context, index) => const Icon(
+                            Icons.star,
+                            color: Colors.amber,
+                          ),
+                          itemCount: 5,
+                          itemSize: 18,
+                          direction: Axis.horizontal,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${rating.toStringAsFixed(1)} sao',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey.shade600,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (comment.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                comment,
+                style: const TextStyle(
+                  fontSize: 15,
+                  height: 1.5,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+          ],
+          if (createdAt != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              _formatReviewDate(createdAt),
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade500,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _formatReviewDate(String dateStr) {
+    try {
+      final date = DateTime.parse(dateStr);
+      final now = DateTime.now();
+      final diff = now.difference(date);
+
+      if (diff.inDays == 0) {
+        return 'Hôm nay';
+      } else if (diff.inDays == 1) {
+        return 'Hôm qua';
+      } else if (diff.inDays < 7) {
+        return '${diff.inDays} ngày trước';
+      } else if (diff.inDays < 30) {
+        return '${(diff.inDays / 7).floor()} tuần trước';
+      } else {
+        return '${date.day}/${date.month}/${date.year}';
+      }
+    } catch (e) {
+      return '';
+    }
+  }
+
+  Future<void> _addToCart() async {
+    try {
+      // Get user ID
+      final prefs = await SharedPreferences.getInstance();
+      final userIdStr = prefs.getString('user_id');
+
+      if (userIdStr == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(' Vui lòng đăng nhập để thêm vào giỏ hàng'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 2),
+          ),
+        );
+        return;
+      }
+
+      final userId = int.tryParse(userIdStr);
+      if (userId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(' Lỗi định dạng user ID'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 2),
+          ),
+        );
+        return;
+      }
+
+      // Show loading
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Đang thêm vào giỏ hàng...'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+
+      // Add to cart via API
+      final result = await ApiService.addToCart(
+        userId: userId,
+        bookId: widget.bookId,
+        quantity: _quantity,
+      );
+
+      if (!mounted) return;
+
+      if (result != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(' Đã thêm vào giỏ hàng!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+
+        // Reset quantity
+        setState(() => _quantity = 1);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(' Không thể thêm vào giỏ hàng'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      print(' Error adding to cart: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(' Đã xảy ra lỗi'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+}
