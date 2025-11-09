@@ -99,7 +99,7 @@ class ProductApiProvider with foundation.ChangeNotifier {
         categoryName: categoryName ?? '',
         sale: ((bookData['discount_percentage'] ?? 0) as num).toInt(),
         isFeatured: bookData['is_featured'] ?? false,
-        count: bookData['rating_count'] ?? 0,
+        count: bookData['stock_quantity'] ?? 0,
       );
     } catch (e) {
       print('Error mapping book data: $e');

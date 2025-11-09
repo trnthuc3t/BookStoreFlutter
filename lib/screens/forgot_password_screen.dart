@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
+import '../providers/auth_provider_new.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -20,11 +20,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     super.dispose();
   }
 
-  Future<void> _resetPassword() async {
+  Future<void> _sendResetEmail() async {
     if (_formKey.currentState!.validate()) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      
-      final success = await authProvider.resetPassword(
+
+      final success = await authProvider.forgotPassword(
         _emailController.text.trim(),
       );
 
@@ -99,9 +99,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   Consumer<AuthProvider>(
                     builder: (context, authProvider, child) {
                       return ElevatedButton(
-                        onPressed: authProvider.isLoading ? null : _resetPassword,
+                        onPressed:
+                            authProvider.isLoading ? null : _sendResetEmail,
                         child: authProvider.isLoading
-                            ? const CircularProgressIndicator(color: Colors.white)
+                            ? const CircularProgressIndicator(
+                                color: Colors.white)
                             : const Text('Gửi email đặt lại mật khẩu'),
                       );
                     },

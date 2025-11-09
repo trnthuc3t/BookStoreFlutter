@@ -44,37 +44,81 @@ class ProductGridWidget extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Product image
+            // Product image with out of stock overlay
             Expanded(
               flex: 3,
-              child: Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(8)),
-                  color: Colors.grey.shade100,
-                ),
-                child: ClipRRect(
-                  borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(8)),
-                  child: product.image != null
-                      ? CachedNetworkImage(
-                          imageUrl:
-                              ImageUtils.normalizeImageUrl(product.image!) ??
+              child: Stack(
+                children: [
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      borderRadius:
+                          const BorderRadius.vertical(top: Radius.circular(8)),
+                      color: Colors.grey.shade100,
+                    ),
+                    child: ClipRRect(
+                      borderRadius:
+                          const BorderRadius.vertical(top: Radius.circular(8)),
+                      child: product.image != null
+                          ? CachedNetworkImage(
+                              imageUrl: ImageUtils.normalizeImageUrl(
+                                      product.image!) ??
                                   '',
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) => const Center(
-                            child: CircularProgressIndicator(),
-                          ),
-                          errorWidget: (context, url, error) => const Center(
-                            child:
-                                Icon(Icons.book, size: 50, color: Colors.grey),
-                          ),
-                        )
-                      : const Center(
-                          child: Icon(Icons.book, size: 50, color: Colors.grey),
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => const Center(
+                                child: CircularProgressIndicator(),
+                              ),
+                              errorWidget: (context, url, error) =>
+                                  const Center(
+                                child: Icon(Icons.book,
+                                    size: 50, color: Colors.grey),
+                              ),
+                            )
+                          : const Center(
+                              child: Icon(Icons.book,
+                                  size: 50, color: Colors.grey),
+                            ),
+                    ),
+                  ),
+
+                  // Out of stock overlay
+                  if (product.count <= 0)
+                    Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.6),
+                          borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(8)),
                         ),
-                ),
+                        child: Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.95),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.red,
+                                width: 2,
+                              ),
+                            ),
+                            child: const Text(
+                              'HẾT\nHÀNG',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.red,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                                height: 1.2,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
 

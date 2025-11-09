@@ -5,7 +5,7 @@ import '../providers/product_provider_new.dart' as api_providers;
 import '../providers/cart_provider_new.dart';
 import '../widgets/product_grid_widget.dart';
 import '../utils/image_utils.dart';
-import 'product_detail_screen.dart';
+import 'product_detail_api_screen.dart';
 import 'cart_screen.dart';
 
 class HomeTab extends StatefulWidget {
@@ -15,22 +15,26 @@ class HomeTab extends StatefulWidget {
   State<HomeTab> createState() => _HomeTabState();
 }
 
-class _HomeTabState extends State<HomeTab> {
+class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true; // Keep state alive when switching tabs
+
   @override
   void initState() {
     super.initState();
     _loadData();
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadData({bool forceReload = false}) async {
     final productProvider =
         Provider.of<api_providers.ProductApiProvider>(context, listen: false);
-    await productProvider.loadProducts();
-    await productProvider.loadCategories();
+    await productProvider.loadProducts(forceReload: forceReload);
+    await productProvider.loadCategories(forceReload: forceReload);
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('BookSell'),
@@ -101,7 +105,7 @@ class _HomeTabState extends State<HomeTab> {
           }
 
           return RefreshIndicator(
-            onRefresh: _loadData,
+            onRefresh: () => _loadData(forceReload: true),
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               child: Column(
@@ -260,7 +264,7 @@ class _HomeTabState extends State<HomeTab> {
                         Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (context) =>
-                                ProductDetailScreen(product: product),
+                                ProductDetailApiScreen(bookId: product.id),
                           ),
                         );
                       },
@@ -297,7 +301,7 @@ class _HomeTabState extends State<HomeTab> {
                       Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (context) =>
-                              ProductDetailScreen(product: product),
+                              ProductDetailApiScreen(bookId: product.id),
                         ),
                       );
                     },

@@ -4,7 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/product_provider_new.dart' as api_providers;
 import '../models/product.dart';
 import '../utils/image_utils.dart';
-import 'product_detail_screen.dart';
+import 'product_detail_api_screen.dart';
 
 class ProductTab extends StatefulWidget {
   const ProductTab({super.key});
@@ -13,10 +13,14 @@ class ProductTab extends StatefulWidget {
   State<ProductTab> createState() => _ProductTabState();
 }
 
-class _ProductTabState extends State<ProductTab> {
+class _ProductTabState extends State<ProductTab>
+    with AutomaticKeepAliveClientMixin {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   int? _selectedCategoryId;
+
+  @override
+  bool get wantKeepAlive => true; // Keep state alive when switching tabs
 
   @override
   void initState() {
@@ -30,12 +34,12 @@ class _ProductTabState extends State<ProductTab> {
     super.dispose();
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadData({bool forceReload = false}) async {
     final productProvider =
         Provider.of<api_providers.ProductApiProvider>(context, listen: false);
     // Only load if not already loaded (cached)
-    await productProvider.loadProducts(forceReload: false);
-    await productProvider.loadCategories(forceReload: false);
+    await productProvider.loadProducts(forceReload: forceReload);
+    await productProvider.loadCategories(forceReload: forceReload);
   }
 
   List<Product> get _filteredProducts {
@@ -59,6 +63,7 @@ class _ProductTabState extends State<ProductTab> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
     return Scaffold(
       appBar: AppBar(
         title: const Text('Sản phẩm'),
@@ -170,7 +175,7 @@ class _ProductTabState extends State<ProductTab> {
                         child: Text('Không tìm thấy sản phẩm nào'),
                       )
                     : RefreshIndicator(
-                        onRefresh: _loadData,
+                        onRefresh: () => _loadData(forceReload: true),
                         child: GridView.builder(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           gridDelegate:
@@ -200,7 +205,7 @@ class _ProductTabState extends State<ProductTab> {
       onTap: () {
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (context) => ProductDetailScreen(product: product),
+            builder: (context) => ProductDetailApiScreen(bookId: product.id),
           ),
         );
       },

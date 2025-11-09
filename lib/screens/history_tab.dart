@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider_new.dart';
 import '../services/api_service.dart';
 import 'order_detail_screen.dart';
+import 'order_review_screen.dart';
 
 class HistoryTab extends StatefulWidget {
   const HistoryTab({super.key});
@@ -12,11 +13,16 @@ class HistoryTab extends StatefulWidget {
 }
 
 class _HistoryTabState extends State<HistoryTab>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   late TabController _tabController;
   List<dynamic> _orders = [];
   bool _isLoading = true;
   String? _errorMessage;
+  Map<int, bool> _reviewedOrders = {}; // Track which orders have been reviewed
+  Map<int, Map<String, dynamic>> _orderDetailsCache = {}; // Cache order details
+
+  @override
+  bool get wantKeepAlive => true; // Keep state alive when switching tabs
 
   @override
   void initState() {
@@ -45,6 +51,24 @@ class _HistoryTabState extends State<HistoryTab>
         final orders = await ApiService.getUserOrders(
             userId: authProvider.currentUser!.id!);
         print('✅ Loaded ${orders.length} orders');
+
+        // Collect all delivered order IDs for batch checking
+        final deliveredOrderIds = orders
+            .where((order) =>
+                order['status']?.toString().toLowerCase() == 'delivered')
+            .map((order) => order['id'] as int)
+            .toList();
+
+        // Batch check review status for all delivered orders at once
+        if (deliveredOrderIds.isNotEmpty) {
+          print(
+              '⭐ Batch checking review status for ${deliveredOrderIds.length} orders...');
+          _reviewedOrders = await ApiService.hasReviewedOrders(
+            orderIds: deliveredOrderIds,
+            userId: authProvider.currentUser!.id!,
+          );
+          print('✅ Review status checked for ${_reviewedOrders.length} orders');
+        }
 
         if (mounted) {
           setState(() {
@@ -84,6 +108,7 @@ class _HistoryTabState extends State<HistoryTab>
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
     return Scaffold(
       appBar: AppBar(
         title: const Text('Lịch sử đơn hàng'),
@@ -260,38 +285,80 @@ class _HistoryTabState extends State<HistoryTab>
               ],
             ),
             const SizedBox(height: 12),
-            // View Detail Button
-            InkWell(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => OrderDetailScreen(
-                      orderId: orderId,
-                      orderNumber: orderNumber,
-                    ),
+            // View Detail Button and Review Button
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => OrderDetailScreen(
+                          orderId: orderId,
+                          orderNumber: orderNumber,
+                        ),
+                      ),
+                    );
+                  },
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Xem thêm',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.blue.shade700,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.keyboard_arrow_down,
+                        size: 18,
+                        color: Colors.blue.shade700,
+                      ),
+                    ],
                   ),
-                );
-              },
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Xem thêm',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.blue.shade700,
-                      fontWeight: FontWeight.w500,
+                ),
+                // Show Review button only for delivered orders that haven't been reviewed
+                if (status.toLowerCase() == 'delivered' &&
+                    !(_reviewedOrders[orderId] ?? false)) ...[
+                  const SizedBox(width: 24),
+                  InkWell(
+                    onTap: () => _showReviewDialog(order),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.amber,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(
+                            Icons.star,
+                            size: 16,
+                            color: Colors.white,
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            'Đánh giá',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    Icons.keyboard_arrow_down,
-                    size: 18,
-                    color: Colors.blue.shade700,
                   ),
                 ],
-              ),
+              ],
             ),
           ],
         ),
@@ -354,6 +421,111 @@ class _HistoryTabState extends State<HistoryTab>
       return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
     } catch (e) {
       return 'N/A';
+    }
+  }
+
+  Future<void> _showReviewDialog(Map<String, dynamic> order) async {
+    final orderId = order['id'];
+    final orderNumber = order['order_number'] ?? 'N/A';
+
+    try {
+      Map<String, dynamic>? orderDetails;
+
+      // Check cache first
+      if (_orderDetailsCache.containsKey(orderId)) {
+        print('✅ Using cached order details for order #$orderId');
+        orderDetails = _orderDetailsCache[orderId];
+      } else {
+        // Show loading dialog only if not cached
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: CircularProgressIndicator(),
+          ),
+        );
+
+        // Fetch order details to get products list
+        print('📥 Fetching order details for order #$orderId...');
+        orderDetails = await ApiService.getOrderDetail(orderId: orderId);
+
+        if (mounted) {
+          Navigator.pop(context); // Close loading dialog
+        }
+
+        // Cache the result
+        if (orderDetails != null) {
+          _orderDetailsCache[orderId] = orderDetails;
+        }
+      }
+
+      if (mounted) {
+        if (orderDetails == null || orderDetails['items'] == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Không thể tải thông tin đơn hàng'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+
+        final items = orderDetails['items'] as List<dynamic>;
+
+        // Prepare products list for review screen
+        final products = items.map((item) {
+          final book = item['book'];
+          String? bookImage;
+
+          // Get first image if available
+          if (book != null && book['images'] != null) {
+            final images = book['images'] as List<dynamic>;
+            if (images.isNotEmpty) {
+              bookImage = images[0]['image_url'];
+            }
+          }
+
+          return {
+            'book_id': item['book_id'],
+            'book_title': book?['title'] ?? 'N/A',
+            'book_image': bookImage,
+            'quantity': item['quantity'],
+          };
+        }).toList();
+
+        // Navigate to review screen
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => OrderReviewScreen(
+              orderId: orderId,
+              orderNumber: orderNumber,
+              products: products,
+            ),
+          ),
+        );
+
+        // Reload orders if reviews were submitted
+        if (result == true) {
+          // Clear cache for this order when review is submitted
+          _orderDetailsCache.remove(orderId);
+          _loadData();
+        }
+      }
+    } catch (e) {
+      print('❌ Error loading order for review: $e');
+      if (mounted) {
+        // Try to pop loading dialog if it's showing
+        if (Navigator.canPop(context)) {
+          Navigator.pop(context);
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 }

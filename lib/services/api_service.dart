@@ -134,6 +134,123 @@ class ApiService {
     return isLoggedIn;
   }
 
+  // Gửi email quên mật khẩu
+  static Future<Map<String, dynamic>?> forgotPassword(String email) async {
+    try {
+      final response = await http.post(
+        Uri.parse(
+            '${ApiConstants.baseUrl}/api/auth/forgot-password?email=$email'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+
+      String errorMsg = 'Gửi email thất bại';
+      try {
+        final errorData = jsonDecode(response.body) as Map<String, dynamic>;
+        errorMsg = errorData['detail'] ?? errorMsg;
+      } catch (e) {
+        print('Could not parse error response');
+      }
+
+      throw Exception(errorMsg);
+    } catch (e) {
+      print('Forgot password error: $e');
+      rethrow;
+    }
+  }
+
+  // Đặt lại mật khẩu với token
+  static Future<Map<String, dynamic>?> resetPassword({
+    required String token,
+    required String newPassword,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${ApiConstants.baseUrl}/api/auth/reset-password'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'token': token,
+          'new_password': newPassword,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+
+      String errorMsg = 'Đặt lại mật khẩu thất bại';
+      try {
+        final errorData = jsonDecode(response.body) as Map<String, dynamic>;
+        errorMsg = errorData['detail'] ?? errorMsg;
+      } catch (e) {
+        print('Could not parse error response');
+      }
+
+      throw Exception(errorMsg);
+    } catch (e) {
+      print('Reset password error: $e');
+      rethrow;
+    }
+  }
+
+  // Xác thực email với token
+  static Future<Map<String, dynamic>?> verifyEmail(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/api/auth/verify-email/$token'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+
+      String errorMsg = 'Xác thực email thất bại';
+      try {
+        final errorData = jsonDecode(response.body) as Map<String, dynamic>;
+        errorMsg = errorData['detail'] ?? errorMsg;
+      } catch (e) {
+        print('Could not parse error response');
+      }
+
+      throw Exception(errorMsg);
+    } catch (e) {
+      print('Verify email error: $e');
+      rethrow;
+    }
+  }
+
+  // Gửi lại email xác thực
+  static Future<Map<String, dynamic>?> resendVerification(String email) async {
+    try {
+      final response = await http.post(
+        Uri.parse(
+            '${ApiConstants.baseUrl}/api/auth/resend-verification?email=$email'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+
+      String errorMsg = 'Gửi lại email thất bại';
+      try {
+        final errorData = jsonDecode(response.body) as Map<String, dynamic>;
+        errorMsg = errorData['detail'] ?? errorMsg;
+      } catch (e) {
+        print('Could not parse error response');
+      }
+
+      throw Exception(errorMsg);
+    } catch (e) {
+      print('Resend verification error: $e');
+      rethrow;
+    }
+  }
+
   // Books
   static Future<List<dynamic>> getBooks({
     int skip = 0,
@@ -1069,6 +1186,154 @@ class ApiService {
       print('❌ Cancel order error: $e');
       print('Stack trace: $stackTrace');
       return false;
+    }
+  }
+
+  // ============================================
+  // REVIEW API METHODS
+  // ============================================
+
+  /// Submit review for a book in an order
+  static Future<bool> submitReview({
+    required int bookId,
+    required int orderId,
+    required int rating,
+    String? comment,
+  }) async {
+    try {
+      print('⭐ Submitting review for book #$bookId in order #$orderId...');
+      final response = await http.post(
+        Uri.parse('${ApiConstants.baseUrl}/api/reviews'),
+        headers: await _getHeaders(),
+        body: jsonEncode({
+          'book_id': bookId,
+          'order_id': orderId,
+          'rating': rating,
+          if (comment != null && comment.isNotEmpty) 'comment': comment,
+        }),
+      );
+
+      print('⭐ Submit review response status: ${response.statusCode}');
+      print('⭐ Submit review response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final success = data['success'] ?? false;
+        if (success) {
+          print('✅ Review submitted successfully');
+          return true;
+        } else {
+          print('⚠️ Review already exists or failed: ${data['message']}');
+          return false;
+        }
+      } else {
+        print(
+            '❌ Submit review error: ${response.statusCode} - ${response.body}');
+        return false;
+      }
+    } catch (e, stackTrace) {
+      print('❌ Submit review error: $e');
+      print('Stack trace: $stackTrace');
+      return false;
+    }
+  }
+
+  /// Check if user has reviewed an order (single order)
+  static Future<bool> hasReviewedOrder({
+    required int orderId,
+    required int userId,
+  }) async {
+    try {
+      final response = await http.get(
+        Uri.parse(
+            '${ApiConstants.baseUrl}/api/reviews/check?order_id=$orderId&user_id=$userId'),
+        headers: await _getHeaders(),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['has_reviewed'] ?? false;
+      }
+      return false;
+    } catch (e) {
+      print('❌ Check review error: $e');
+      return false;
+    }
+  }
+
+  /// Check review status for multiple orders at once (batch operation)
+  static Future<Map<int, bool>> hasReviewedOrders({
+    required List<int> orderIds,
+    required int userId,
+  }) async {
+    try {
+      if (orderIds.isEmpty) return {};
+
+      print('⭐ Checking review status for ${orderIds.length} orders...');
+      final response = await http.post(
+        Uri.parse('${ApiConstants.baseUrl}/api/reviews/check-batch'),
+        headers: await _getHeaders(),
+        body: jsonEncode({
+          'order_ids': orderIds,
+          'user_id': userId,
+        }),
+      );
+
+      print('⭐ Batch check response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        // Convert string keys to int keys
+        final result = <int, bool>{};
+        data.forEach((key, value) {
+          result[int.parse(key)] = value as bool;
+        });
+        print('✅ Checked ${result.length} orders');
+        return result;
+      }
+      return {};
+    } catch (e) {
+      print('❌ Batch check review error: $e');
+      // Fallback: Return empty map, will assume not reviewed
+      return {};
+    }
+  }
+
+  /// Get reviews for a book
+  static Future<List<dynamic>> getBookReviews({
+    required int bookId,
+    int skip = 0,
+    int limit = 20,
+  }) async {
+    try {
+      print('📥 Fetching reviews for book #$bookId...');
+      final response = await http.get(
+        Uri.parse(
+            '${ApiConstants.baseUrl}/api/books/$bookId/reviews?skip=$skip&limit=$limit'),
+        headers: await _getHeaders(),
+      );
+
+      print('📥 Reviews response status: ${response.statusCode}');
+      print('📥 Reviews response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        // Backend returns List directly, not wrapped in 'reviews' key
+        if (data is List) {
+          print('✅ Found ${data.length} reviews');
+          return data;
+        } else if (data is Map && data['reviews'] != null) {
+          print('✅ Found ${data['reviews'].length} reviews (wrapped)');
+          return data['reviews'] ?? [];
+        }
+        print('⚠️ Unexpected data format: $data');
+        return [];
+      }
+      print('❌ Failed to get reviews: ${response.statusCode}');
+      return [];
+    } catch (e) {
+      print('❌ Get book reviews error: $e');
+      return [];
     }
   }
 }

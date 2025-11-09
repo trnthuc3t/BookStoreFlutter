@@ -32,27 +32,67 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Product image
-            Container(
-              height: 300,
-              width: double.infinity,
-              color: Colors.grey.shade100,
-              child: widget.product.image != null
-                  ? CachedNetworkImage(
-                      imageUrl:
-                          ImageUtils.normalizeImageUrl(widget.product.image!) ??
+            // Product image with out of stock overlay
+            Stack(
+              children: [
+                Container(
+                  height: 300,
+                  width: double.infinity,
+                  color: Colors.grey.shade100,
+                  child: widget.product.image != null
+                      ? CachedNetworkImage(
+                          imageUrl: ImageUtils.normalizeImageUrl(
+                                  widget.product.image!) ??
                               '',
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => const Center(
-                        child: CircularProgressIndicator(),
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => const Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                          errorWidget: (context, url, error) => const Center(
+                            child:
+                                Icon(Icons.book, size: 100, color: Colors.grey),
+                          ),
+                        )
+                      : const Center(
+                          child:
+                              Icon(Icons.book, size: 100, color: Colors.grey),
+                        ),
+                ),
+
+                // Out of stock overlay
+                if (widget.product.count <= 0)
+                  Positioned.fill(
+                    child: Container(
+                      color: Colors.black.withOpacity(0.6),
+                      child: Center(
+                        child: Container(
+                          width: 120,
+                          height: 120,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.95),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.red,
+                              width: 3,
+                            ),
+                          ),
+                          child: const Center(
+                            child: Text(
+                              'HẾT\nHÀNG',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.red,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 20,
+                                height: 1.2,
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
-                      errorWidget: (context, url, error) => const Center(
-                        child: Icon(Icons.book, size: 100, color: Colors.grey),
-                      ),
-                    )
-                  : const Center(
-                      child: Icon(Icons.book, size: 100, color: Colors.grey),
                     ),
+                  ),
+              ],
             ),
 
             Padding(
@@ -199,7 +239,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   Row(
                     children: [
                       IconButton(
-                        onPressed: _quantity > 1
+                        onPressed: widget.product.count > 0 && _quantity > 1
                             ? () => setState(() => _quantity--)
                             : null,
                         icon: const Icon(Icons.remove),
@@ -221,7 +261,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         ),
                       ),
                       IconButton(
-                        onPressed: () => setState(() => _quantity++),
+                        onPressed: widget.product.count > 0
+                            ? () => setState(() => _quantity++)
+                            : null,
                         icon: const Icon(Icons.add),
                         style: IconButton.styleFrom(
                           backgroundColor: Colors.grey.shade200,
@@ -235,11 +277,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
-                      onPressed: () => _addToCart(),
+                      onPressed:
+                          widget.product.count > 0 ? () => _addToCart() : null,
                       icon: const Icon(Icons.shopping_cart),
-                      label: const Text('Thêm vào giỏ hàng'),
+                      label: Text(
+                        widget.product.count > 0
+                            ? 'Thêm vào giỏ hàng'
+                            : 'Hết hàng',
+                      ),
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor:
+                            widget.product.count > 0 ? null : Colors.grey,
                       ),
                     ),
                   ),

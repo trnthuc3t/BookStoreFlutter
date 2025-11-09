@@ -881,6 +881,51 @@ class _AdminProductsTabState extends State<AdminProductsTab> {
     }
   }
 
+  Future<void> _toggleProductStatus(
+      int bookId, bool currentStatus, String title) async {
+    print(
+        '🔄 Toggling product #$bookId from $currentStatus to ${!currentStatus}');
+
+    final success = await ApiService.updateBook(
+      bookId: bookId,
+      isActive: !currentStatus,
+    );
+
+    if (success) {
+      print('✅ Product #$bookId toggle successful');
+
+      // Update local state immediately for instant feedback
+      setState(() {
+        final productIndex = _products.indexWhere((p) => p['id'] == bookId);
+        if (productIndex != -1) {
+          _products[productIndex]['is_active'] = !currentStatus;
+        }
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              !currentStatus ? '✅ Đã bật bán: $title' : '⏸️ Đã tắt bán: $title',
+            ),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } else {
+      print('❌ Product #$bookId toggle failed');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('❌ Cập nhật thất bại'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -1051,7 +1096,17 @@ class _AdminProductsTabState extends State<AdminProductsTab> {
                                   ),
                                 ],
                               ),
-                              trailing: const Icon(Icons.chevron_right),
+                              trailing: Switch(
+                                value: isActive,
+                                activeColor: Colors.green,
+                                onChanged: (value) {
+                                  _toggleProductStatus(
+                                    product['id'],
+                                    isActive,
+                                    product['title'],
+                                  );
+                                },
+                              ),
                             ),
                           );
                         },

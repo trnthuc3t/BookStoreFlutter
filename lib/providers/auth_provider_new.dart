@@ -283,4 +283,98 @@ class AuthProvider with ChangeNotifier {
   void clearError() {
     _clearError();
   }
+
+  // Gửi email quên mật khẩu
+  Future<bool> forgotPassword(String email) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final result = await ApiService.forgotPassword(email);
+      if (result != null) {
+        print('✅ Forgot password email sent');
+        return true;
+      }
+
+      _setError('Gửi email thất bại');
+      return false;
+    } catch (e) {
+      _setError('Lỗi: ${e.toString()}');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Đặt lại mật khẩu với token
+  Future<bool> resetPasswordWithToken({
+    required String token,
+    required String newPassword,
+  }) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final result = await ApiService.resetPassword(
+        token: token,
+        newPassword: newPassword,
+      );
+      if (result != null) {
+        print('✅ Password reset successful');
+        return true;
+      }
+
+      _setError('Đặt lại mật khẩu thất bại');
+      return false;
+    } catch (e) {
+      _setError('Lỗi: ${e.toString()}');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Xác thực email
+  Future<bool> verifyEmail(String token) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final result = await ApiService.verifyEmail(token);
+      if (result != null) {
+        print('✅ Email verified successfully');
+        return true;
+      }
+
+      _setError('Xác thực email thất bại');
+      return false;
+    } catch (e) {
+      _setError('Lỗi: ${e.toString()}');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Gửi lại email xác thực
+  Future<bool> resendVerification(String email) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final result = await ApiService.resendVerification(email);
+      if (result != null) {
+        print('✅ Verification email resent');
+        return true;
+      }
+
+      _setError('Gửi lại email thất bại');
+      return false;
+    } catch (e) {
+      _setError('Lỗi: ${e.toString()}');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
 }
