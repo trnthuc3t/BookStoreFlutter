@@ -30,6 +30,8 @@ class Product {
   bool isFeatured;
   String? info;
   Map<String, Rating>? rating;
+  double ratingAverage; // From API
+  int ratingCount; // From API
   int count;
   int totalPrice;
   int priceOneProduct;
@@ -47,6 +49,8 @@ class Product {
     this.isFeatured = false,
     this.info,
     this.rating,
+    this.ratingAverage = 0.0,
+    this.ratingCount = 0,
     this.count = 0,
     this.totalPrice = 0,
     this.priceOneProduct = 0,
@@ -66,8 +70,12 @@ class Product {
     return rating!.length;
   }
 
-  // Average rating
+  // Average rating - prioritize API data
   double get rate {
+    // Use rating_average from API if available
+    if (ratingAverage > 0) return ratingAverage;
+    
+    // Fallback to calculating from rating map (legacy)
     if (rating == null || rating!.isEmpty) return 0.0;
     double sum = 0.0;
     for (var ratingEntity in rating!.values) {
@@ -104,6 +112,8 @@ class Product {
       isFeatured: json['isFeatured'] ?? false,
       info: json['info'],
       rating: ratingMap,
+      ratingAverage: (json['rating_average'] ?? 0.0).toDouble(),
+      ratingCount: json['rating_count'] ?? 0,
       count: json['count'] ?? 0,
       totalPrice: json['totalPrice'] ?? 0,
       priceOneProduct: json['priceOneProduct'] ?? 0,
@@ -132,6 +142,8 @@ class Product {
       'isFeatured': isFeatured,
       'info': info,
       'rating': ratingJson,
+      'rating_average': ratingAverage,
+      'rating_count': ratingCount,
       'count': count,
       'totalPrice': totalPrice,
       'priceOneProduct': priceOneProduct,
@@ -151,6 +163,8 @@ class Product {
     bool? isFeatured,
     String? info,
     Map<String, Rating>? rating,
+    double? ratingAverage,
+    int? ratingCount,
     int? count,
     int? totalPrice,
     int? priceOneProduct,
@@ -168,6 +182,8 @@ class Product {
       isFeatured: isFeatured ?? this.isFeatured,
       info: info ?? this.info,
       rating: rating ?? this.rating,
+      ratingAverage: ratingAverage ?? this.ratingAverage,
+      ratingCount: ratingCount ?? this.ratingCount,
       count: count ?? this.count,
       totalPrice: totalPrice ?? this.totalPrice,
       priceOneProduct: priceOneProduct ?? this.priceOneProduct,

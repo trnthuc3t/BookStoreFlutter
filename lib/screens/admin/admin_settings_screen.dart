@@ -6,6 +6,7 @@ import '../../providers/order_provider.dart';
 import '../../screens/login_screen.dart';
 import 'admin_voucher_screen.dart';
 import 'admin_feedback_screen.dart';
+import 'admin_statistics_screen.dart';
 
 class AdminSettingsScreen extends StatelessWidget {
   const AdminSettingsScreen({super.key});
@@ -109,12 +110,14 @@ class AdminSettingsScreen extends StatelessWidget {
           ),
           _buildListTile(
             context,
-            'Báo cáo doanh thu',
+            'Thống kê chi tiết',
             Icons.analytics,
             () {
-              // TODO: Navigate to revenue report
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Tính năng đang phát triển')),
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AdminStatisticsScreen(),
+                ),
               );
             },
           ),

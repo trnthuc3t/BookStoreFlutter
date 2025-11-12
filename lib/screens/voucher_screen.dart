@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/order_provider.dart';
+import '../providers/order_provider_new.dart';
 import '../models/voucher.dart';
 import '../widgets/voucher_list_widget.dart';
 
@@ -22,7 +22,48 @@ class _VoucherScreenState extends State<VoucherScreen> {
     _loadVouchers();
   }
 
+  void _enterCodeManually() async {
+    final code = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        String inputCode = '';
+        return AlertDialog(
+          title: const Text('Nhập mã voucher'),
+          content: TextField(
+            autofocus: true,
+            decoration: const InputDecoration(
+              hintText: 'Ví dụ: TEST10K',
+              border: OutlineInputBorder(),
+            ),
+            onChanged: (value) => inputCode = value,
+            onSubmitted: (value) {
+              Navigator.of(context).pop(value.trim().toUpperCase());
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Hủy'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(inputCode.trim().toUpperCase());
+              },
+              child: const Text('Áp dụng'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (code != null && code.isNotEmpty && mounted) {
+      Navigator.of(context).pop(code);
+    }
+  }
+
   Future<void> _loadVouchers() async {
+    if (!mounted) return;
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -31,12 +72,19 @@ class _VoucherScreenState extends State<VoucherScreen> {
     try {
       final orderProvider = Provider.of<OrderProvider>(context, listen: false);
       await orderProvider.loadVouchers();
-      
+
+      if (!mounted) return;
+
       setState(() {
         _vouchers = orderProvider.vouchers;
         _isLoading = false;
       });
+      print('VoucherScreen: Loaded ${_vouchers.length} vouchers');
     } catch (e) {
+      print('VoucherScreen error: $e');
+
+      if (!mounted) return;
+
       setState(() {
         _isLoading = false;
         _errorMessage = 'Lỗi tải danh sách voucher: ${e.toString()}';
@@ -50,6 +98,11 @@ class _VoucherScreenState extends State<VoucherScreen> {
       appBar: AppBar(
         title: const Text('Voucher & Khuyến mãi'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.edit),
+            onPressed: _enterCodeManually,
+            tooltip: 'Nhập mã',
+          ),
           TextButton(
             onPressed: () {
               Navigator.of(context).pop(null);
@@ -106,7 +159,7 @@ class _VoucherScreenState extends State<VoucherScreen> {
     return VoucherListWidget(
       vouchers: _vouchers,
       onVoucherSelected: (voucher) {
-        Navigator.of(context).pop(voucher.name);
+        Navigator.of(context).pop(voucher.code);
       },
     );
   }

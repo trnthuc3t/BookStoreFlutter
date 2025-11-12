@@ -99,6 +99,8 @@ class ProductApiProvider with foundation.ChangeNotifier {
         categoryName: categoryName ?? '',
         sale: ((bookData['discount_percentage'] ?? 0) as num).toInt(),
         isFeatured: bookData['is_featured'] ?? false,
+        ratingAverage: ((bookData['rating_average'] ?? 0.0) as num).toDouble(),
+        ratingCount: bookData['rating_count'] ?? 0,
         count: bookData['stock_quantity'] ?? 0,
       );
     } catch (e) {
@@ -108,6 +110,8 @@ class ProductApiProvider with foundation.ChangeNotifier {
         id: bookData['id'] ?? 0,
         name: bookData['title']?.toString() ?? 'Unknown',
         price: 0,
+        ratingAverage: 0.0,
+        ratingCount: 0,
       );
     }
   }

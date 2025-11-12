@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/cart_provider_new.dart';
 import '../providers/auth_provider_new.dart';
-import '../providers/order_provider.dart';
+import '../providers/order_provider_new.dart';
 import '../widgets/cart_list_widget.dart';
 import 'address_screen.dart';
 import 'payment_method_screen.dart';
 import 'voucher_screen.dart';
 import 'payment_screen.dart';
+import '../services/api_service.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -21,6 +22,7 @@ class _CartScreenState extends State<CartScreen> {
   String? _selectedAddress;
   String? _selectedVoucher;
   int _voucherDiscount = 0;
+  bool _isValidatingVoucher = false;
 
   @override
   void initState() {
@@ -35,7 +37,7 @@ class _CartScreenState extends State<CartScreen> {
 
     if (authProvider.currentUser?.id != null) {
       await cartProvider.loadCartItems(authProvider.currentUser!.id!);
-      await orderProvider.loadVouchers();
+      await orderProvider.loadVouchers(userId: authProvider.currentUser!.id!);
     }
   }
 
@@ -285,13 +287,27 @@ class _CartScreenState extends State<CartScreen> {
                     'Voucher',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  Text(
-                    _selectedVoucher ?? 'Chọn voucher (không bắt buộc)',
-                    style: TextStyle(
-                      color:
-                          _selectedVoucher != null ? Colors.black : Colors.grey,
-                    ),
-                  ),
+                  _isValidatingVoucher
+                      ? const Row(
+                          children: [
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            SizedBox(width: 8),
+                            Text('Đang kiểm tra...',
+                                style: TextStyle(color: Colors.blue)),
+                          ],
+                        )
+                      : Text(
+                          _selectedVoucher ?? 'Chọn voucher (không bắt buộc)',
+                          style: TextStyle(
+                            color: _selectedVoucher != null
+                                ? Colors.black
+                                : Colors.grey,
+                          ),
+                        ),
                 ],
               ),
             ),
@@ -349,7 +365,9 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   bool _canCheckout() {
-    return _selectedPaymentMethod != null && _selectedAddress != null;
+    return _selectedPaymentMethod != null &&
+           _selectedAddress != null &&
+           !_isValidatingVoucher;  // Không cho thanh toán khi đang validate voucher
   }
 
   Future<void> _selectPaymentMethod() async {
@@ -381,10 +399,138 @@ class _CartScreenState extends State<CartScreen> {
       MaterialPageRoute(builder: (context) => const VoucherScreen()),
     );
 
+    print('🎫 [DEBUG] Selected voucher result: $result');
+
     if (result != null && mounted) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final code = result.toString();
+      print('🎫 [DEBUG] Voucher code: $code');
+      print('🎫 [DEBUG] User ID: ${authProvider.currentUser?.id}');
+
       setState(() {
-        _selectedVoucher = result.toString();
-        _voucherDiscount = 50; // TODO: Calculate actual discount
+        _selectedVoucher = code;
+        _isValidatingVoucher = true;
+      });
+
+      if (authProvider.currentUser?.id != null) {
+        print('🎫 [DEBUG] Calling validateVoucher API...');
+        final res = await ApiService.validateVoucher(userId: authProvider.currentUser!.id!, code: code);
+
+        print('🎫 [DEBUG] API Response: $res');
+        print('🎫 [DEBUG] Valid: ${res?['valid']}');
+        print('🎫 [DEBUG] Discount amount: ${res?['discount_amount']}');
+        print('🎫 [DEBUG] Shipping discount: ${res?['shipping_discount']}');
+
+        if (!mounted) return;
+
+        setState(() {
+          _isValidatingVoucher = false;
+        });
+
+        if (res != null && (res['valid'] == true)) {
+          print('🎫 [DEBUG] Voucher is VALID!');
+          // Backend trả về discount_amount và shipping_discount theo đơn vị VND
+          // Cần chuyển sang đơn vị k (1k = 1000 VND)
+          final discountInVnd = ((res['discount_amount'] ?? 0) as num).toDouble();
+          final shipDiscountInVnd = ((res['shipping_discount'] ?? 0) as num).toDouble();
+          final totalDiscountInK = ((discountInVnd + shipDiscountInVnd) / 1000).round();
+
+          print('🎫 [DEBUG] Discount in VND: $discountInVnd');
+          print('🎫 [DEBUG] Shipping discount in VND: $shipDiscountInVnd');
+          print('🎫 [DEBUG] Total discount in K: $totalDiscountInK');
+
+          setState(() {
+            _voucherDiscount = totalDiscountInK;
+          });
+          print('🎫 [DEBUG] Set _voucherDiscount to: $_voucherDiscount');
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Áp dụng mã giảm giá thành công: -${totalDiscountInK}k'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        } else if (res != null) {
+          // API trả về error với reason cụ thể
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(res['reason']?.toString() ?? 'Voucher không hợp lệ'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          setState(() {
+            _selectedVoucher = null;
+            _voucherDiscount = 0;
+          });
+        } else {
+          // Network error hoặc API timeout
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Lỗi kết nối. Vui lòng thử lại.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          setState(() {
+            _selectedVoucher = null;
+            _voucherDiscount = 0;
+          });
+        }
+      } else {
+        setState(() {
+          _isValidatingVoucher = false;
+        });
+      }
+    }
+  }
+
+  // Revalidate voucher khi cart thay đổi
+  Future<void> _revalidateVoucher() async {
+    if (_selectedVoucher == null || _selectedVoucher!.isEmpty) return;
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (authProvider.currentUser?.id == null) return;
+
+    setState(() {
+      _isValidatingVoucher = true;
+    });
+
+    final res = await ApiService.validateVoucher(
+      userId: authProvider.currentUser!.id!,
+      code: _selectedVoucher!
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _isValidatingVoucher = false;
+    });
+
+    if (res != null && (res['valid'] == true)) {
+      final discountInVnd = ((res['discount_amount'] ?? 0) as num).toDouble();
+      final shipDiscountInVnd = ((res['shipping_discount'] ?? 0) as num).toDouble();
+      final totalDiscountInK = ((discountInVnd + shipDiscountInVnd) / 1000).round();
+      setState(() {
+        _voucherDiscount = totalDiscountInK;
+      });
+    } else {
+      // Voucher không còn hợp lệ (có thể do thay đổi giỏ hàng)
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res?['reason']?.toString() ?? 'Mã giảm giá không còn hợp lệ với giỏ hàng hiện tại'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      setState(() {
+        _selectedVoucher = null;
+        _voucherDiscount = 0;
       });
     }
   }
@@ -399,6 +545,8 @@ class _CartScreenState extends State<CartScreen> {
         quantity,
         authProvider.currentUser!.id!,
       );
+      // Revalidate voucher sau khi thay đổi số lượng
+      await _revalidateVoucher();
     }
   }
 
@@ -411,6 +559,8 @@ class _CartScreenState extends State<CartScreen> {
         cartItemId,
         authProvider.currentUser!.id!,
       );
+      // Revalidate voucher sau khi xóa sản phẩm
+      await _revalidateVoucher();
     }
   }
 

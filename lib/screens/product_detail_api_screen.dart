@@ -61,6 +61,8 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
   }
 
   Future<void> _loadBookData({bool forceReload = false}) async {
+    if (!mounted) return;
+    
     setState(() => _isLoading = true);
 
     try {
@@ -79,27 +81,23 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
         bookData = _bookCache[widget.bookId];
         reviewsData = _reviewsCache[widget.bookId];
       } else {
-        print(
-            '📥 Fetching book data and reviews in parallel for book #${widget.bookId}...');
+        print('📥 Fetching book data for book #${widget.bookId}...');
 
-        // Load book details AND reviews in parallel
-        final results = await Future.wait([
-          ApiService.getBook(widget.bookId),
-          ApiService.getBookReviews(bookId: widget.bookId, limit: 20),
-        ]);
+        // Load ONLY book details first for fast display
+        bookData = await ApiService.getBook(widget.bookId);
 
-        bookData = results[0] as Map<String, dynamic>?;
-        reviewsData = results[1] as List<dynamic>;
+        print('✅ Loaded book data');
 
-        print(
-            '✅ Loaded book data and ${reviewsData.length} reviews in parallel');
-
-        // Store in cache
+        // Store book in cache
         if (bookData != null) {
           _bookCache[widget.bookId] = bookData;
-          _reviewsCache[widget.bookId] = reviewsData;
           _cacheTimestamps[widget.bookId] = now;
-          print('💾 Cached book #${widget.bookId} with reviews');
+          print('💾 Cached book #${widget.bookId}');
+        }
+        
+        // Check if reviews are cached
+        if (_reviewsCache.containsKey(widget.bookId)) {
+          reviewsData = _reviewsCache[widget.bookId];
         }
       }
 
@@ -120,6 +118,11 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
 
           _isLoading = false;
         });
+        
+        // Lazy load reviews in background if not cached
+        if (_reviewsData == null && !forceReload) {
+          _loadReviews();
+        }
       }
     } catch (e) {
       print('❌ Error loading book data: $e');
@@ -130,25 +133,24 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
   }
 
   Future<void> _loadReviews() async {
+    if (!mounted) return;
+    
     try {
       print('📥 Lazy loading reviews for book #${widget.bookId}...');
       final reviewsData = await ApiService.getBookReviews(
         bookId: widget.bookId,
-        limit: 20, // Reduced limit for faster load
+        limit: 20,
       );
 
       print('📊 Reviews data received: ${reviewsData.length} items');
-      if (reviewsData.isNotEmpty) {
-        print('📊 First review: ${reviewsData[0]}');
-      }
 
       if (mounted) {
         setState(() {
           _reviewsData = reviewsData;
-          _reviewsCache[widget.bookId] = reviewsData;
         });
-        print(
-            '✅ Reviews loaded and set to state: ${_reviewsData?.length} reviews');
+        // Cache reviews
+        _reviewsCache[widget.bookId] = reviewsData;
+        print('✅ Reviews loaded: ${reviewsData.length} reviews');
       }
     } catch (e) {
       print('❌ Error loading reviews: $e');
@@ -309,48 +311,55 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
                     const SizedBox(height: 24),
 
                     // Quantity selector
-                    const Text(
-                      'Số lượng',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                    RepaintBoundary(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Số lượng',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              IconButton(
+                                onPressed: stockQuantity > 0 && _quantity > 1
+                                    ? () => setState(() => _quantity--)
+                                    : null,
+                                icon: const Icon(Icons.remove),
+                                style: IconButton.styleFrom(
+                                  backgroundColor: Colors.grey.shade200,
+                                ),
+                              ),
+                              Container(
+                                width: 60,
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.grey),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  '$_quantity',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(fontSize: 16),
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: stockQuantity > 0
+                                    ? () => setState(() => _quantity++)
+                                    : null,
+                                icon: const Icon(Icons.add),
+                                style: IconButton.styleFrom(
+                                  backgroundColor: Colors.grey.shade200,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        IconButton(
-                          onPressed: stockQuantity > 0 && _quantity > 1
-                              ? () => setState(() => _quantity--)
-                              : null,
-                          icon: const Icon(Icons.remove),
-                          style: IconButton.styleFrom(
-                            backgroundColor: Colors.grey.shade200,
-                          ),
-                        ),
-                        Container(
-                          width: 60,
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            '$_quantity',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: stockQuantity > 0
-                              ? () => setState(() => _quantity++)
-                              : null,
-                          icon: const Icon(Icons.add),
-                          style: IconButton.styleFrom(
-                            backgroundColor: Colors.grey.shade200,
-                          ),
-                        ),
-                      ],
                     ),
                     const SizedBox(height: 24),
 
@@ -409,8 +418,15 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
               height: 300,
               width: double.infinity,
               fit: BoxFit.cover,
-              placeholder: (context, url) => const Center(
-                child: CircularProgressIndicator(),
+              memCacheWidth: 800,
+              memCacheHeight: 600,
+              maxWidthDiskCache: 1200,
+              maxHeightDiskCache: 900,
+              placeholder: (context, url) => Container(
+                color: Colors.grey.shade200,
+                child: const Center(
+                  child: CircularProgressIndicator(),
+                ),
               ),
               errorWidget: (context, url, error) => Container(
                 color: Colors.grey.shade200,
@@ -494,60 +510,62 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
       return const SizedBox();
     }
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue.shade100),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: const [
-              Icon(Icons.info_outline, size: 20, color: Colors.blue),
-              SizedBox(width: 8),
-              Text(
-                'Thông tin chi tiết',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+    return RepaintBoundary(
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.blue.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.blue.shade100),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: const [
+                Icon(Icons.info_outline, size: 20, color: Colors.blue),
+                SizedBox(width: 8),
+                Text(
+                  'Thông tin chi tiết',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Authors
+            if (authors != null && authors.isNotEmpty) ...[
+              _buildDetailRow(
+                icon: Icons.person,
+                label: 'Tác giả',
+                value: authors.map((a) => a['name']).join(', '),
+              ),
+              const SizedBox(height: 8),
+            ],
+
+            // Cover Type
+            if (coverType != null && coverType.isNotEmpty) ...[
+              _buildDetailRow(
+                icon: Icons.book,
+                label: 'Loại bìa',
+                value: _getCoverTypeLabel(coverType),
+              ),
+              const SizedBox(height: 8),
+            ],
+
+            // Dimensions
+            if (length != null || width != null || thickness != null) ...[
+              _buildDetailRow(
+                icon: Icons.straighten,
+                label: 'Kích thước',
+                value: _formatDimensions(length, width, thickness),
               ),
             ],
-          ),
-          const SizedBox(height: 12),
-
-          // Authors
-          if (authors != null && authors.isNotEmpty) ...[
-            _buildDetailRow(
-              icon: Icons.person,
-              label: 'Tác giả',
-              value: authors.map((a) => a['name']).join(', '),
-            ),
-            const SizedBox(height: 8),
           ],
-
-          // Cover Type
-          if (coverType != null && coverType.isNotEmpty) ...[
-            _buildDetailRow(
-              icon: Icons.book,
-              label: 'Loại bìa',
-              value: _getCoverTypeLabel(coverType),
-            ),
-            const SizedBox(height: 8),
-          ],
-
-          // Dimensions
-          if (length != null || width != null || thickness != null) ...[
-            _buildDetailRow(
-              icon: Icons.straighten,
-              label: 'Kích thước',
-              value: _formatDimensions(length, width, thickness),
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }
@@ -613,66 +631,68 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
     final lines = description.split('\n');
     final shouldCollapse = lines.length > 4 || description.length > 200;
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: const [
-              Icon(Icons.description, size: 20, color: Colors.blue),
-              SizedBox(width: 8),
-              Text(
-                'Mô tả sản phẩm',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+    return RepaintBoundary(
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: const [
+                Icon(Icons.description, size: 20, color: Colors.blue),
+                SizedBox(width: 8),
+                Text(
+                  'Mô tả sản phẩm',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              description,
+              style: const TextStyle(
+                fontSize: 15,
+                height: 1.5,
+                color: Colors.black87,
+              ),
+              maxLines: _showFullDescription ? null : 4,
+              overflow: _showFullDescription ? null : TextOverflow.ellipsis,
+            ),
+            if (shouldCollapse)
+              Center(
+                child: TextButton.icon(
+                  onPressed: () {
+                    setState(() => _showFullDescription = !_showFullDescription);
+                  },
+                  icon: Icon(
+                    _showFullDescription
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
+                    size: 18,
+                  ),
+                  label: Text(_showFullDescription ? 'Thu gọn' : 'Xem thêm'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.blue,
+                  ),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            description,
-            style: const TextStyle(
-              fontSize: 15,
-              height: 1.5,
-              color: Colors.black87,
-            ),
-            maxLines: _showFullDescription ? null : 4,
-            overflow: _showFullDescription ? null : TextOverflow.ellipsis,
-          ),
-          if (shouldCollapse)
-            Center(
-              child: TextButton.icon(
-                onPressed: () {
-                  setState(() => _showFullDescription = !_showFullDescription);
-                },
-                icon: Icon(
-                  _showFullDescription
-                      ? Icons.keyboard_arrow_up
-                      : Icons.keyboard_arrow_down,
-                  size: 18,
-                ),
-                label: Text(_showFullDescription ? 'Thu gọn' : 'Xem thêm'),
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.blue,
-                ),
-              ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildReviewsSection() {
-    // Reviews are now loaded with book data in parallel, no need for loading state
-    if (_reviewsData == null || _reviewsData!.isEmpty) {
+    // Show loading state while reviews are being lazy loaded
+    if (_reviewsData == null) {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -680,8 +700,36 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.grey.shade200),
         ),
-        child: Row(
-          children: const [
+        child: const Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 12),
+            Text(
+              'Đang tải đánh giá...',
+              style: TextStyle(
+                fontSize: 15,
+                color: Colors.grey,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    if (_reviewsData!.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: const Row(
+          children: [
             Icon(Icons.rate_review, size: 20, color: Colors.grey),
             SizedBox(width: 8),
             Text(
@@ -769,7 +817,8 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
     final comment = review['comment'] ?? '';
     final createdAt = review['created_at'];
 
-    return Container(
+    return RepaintBoundary(
+      child: Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -871,6 +920,7 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
             ),
           ],
         ],
+      ),
       ),
     );
   }

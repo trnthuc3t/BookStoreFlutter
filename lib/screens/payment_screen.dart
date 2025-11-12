@@ -445,6 +445,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       userId: userId,
       paymentMethod: widget.paymentMethod,
       notes: widget.address,
+      voucherCode: widget.voucher,
     );
 
     if (orderData != null) {
@@ -521,6 +522,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       userId: userId,
       paymentMethod: widget.paymentMethod,
       notes: widget.address,
+      voucherCode: widget.voucher,
     );
 
     if (orderData == null) {

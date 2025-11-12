@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider_new.dart' as api_auth;
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
@@ -172,46 +173,25 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       });
 
       try {
-        final user = FirebaseAuth.instance.currentUser;
-        if (user != null) {
-          // Re-authenticate user with old password
-          final credential = EmailAuthProvider.credential(
-            email: user.email!,
-            password: _oldPasswordController.text,
+        final auth = context.read<api_auth.AuthProvider>();
+        final ok = await auth.changePassword(
+          currentPassword: _oldPasswordController.text,
+          newPassword: _newPasswordController.text,
+        );
+
+        if (ok && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Đổi mật khẩu thành công!'),
+              backgroundColor: Colors.green,
+            ),
           );
-
-          await user.reauthenticateWithCredential(credential);
-
-          // Update password
-          await user.updatePassword(_newPasswordController.text);
-
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Đổi mật khẩu thành công!'),
-                backgroundColor: Colors.green,
-              ),
-            );
-            Navigator.of(context).pop();
-          }
+          Navigator.of(context).pop();
+          return;
         }
-      } on FirebaseAuthException catch (e) {
-        String errorMessage;
-        switch (e.code) {
-          case 'wrong-password':
-            errorMessage = 'Mật khẩu hiện tại không đúng';
-            break;
-          case 'weak-password':
-            errorMessage = 'Mật khẩu mới quá yếu';
-            break;
-          case 'requires-recent-login':
-            errorMessage = 'Vui lòng đăng nhập lại để đổi mật khẩu';
-            break;
-          default:
-            errorMessage = 'Lỗi: ${e.message}';
-        }
+
         setState(() {
-          _errorMessage = errorMessage;
+          _errorMessage = auth.errorMessage ?? 'Đổi mật khẩu thất bại';
         });
       } catch (e) {
         setState(() {

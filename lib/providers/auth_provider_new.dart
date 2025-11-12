@@ -57,48 +57,35 @@ class AuthProvider with ChangeNotifier {
     try {
       print('🔐 Checking if user is logged in...');
 
-      // Get user ID from SharedPreferences FIRST
+      // Require valid token for auto login
+      final hasToken = await ApiService.isLoggedIn();
+      if (!hasToken) {
+        print('❌ No token found, skip auto login');
+        return false;
+      }
+
+      // Load minimal user info from storage
       final prefs = await SharedPreferences.getInstance();
       final userIdStr = prefs.getString('user_id');
       final email = prefs.getString('email');
       final role = prefs.getString('role');
 
-      print('📦 Data from storage - User ID: $userIdStr, Email: $email');
-
-      // If no user data stored, can't auto login
       if (userIdStr == null || email == null) {
-        print('❌ No user data in storage, auto login failed');
+        print('❌ Missing user data despite token, skip auto login');
         return false;
       }
 
       final userId = int.tryParse(userIdStr);
-
-      // Check if token exists
-      try {
-        final isLoggedIn = await ApiService.isLoggedIn();
-        if (!isLoggedIn) {
-          print('❌ No token found, but user data exists');
-          print('📦 Using stored data anyway (token expired)');
-        } else {
-          print('✅ Token found');
-        }
-      } catch (e) {
-        print('⚠️ Error checking token: $e');
-        print('📦 Proceeding with stored data');
-      }
-
-      // Use stored data (don't need API verification for now)
       _currentUser = app_models.User(
         id: userId,
         email: email,
         isAdmin: role == 'admin',
       );
 
-      print('✅ Auto login successful using stored data - ID: $userId');
+      print('✅ Auto login successful with token - ID: $userId');
       return true;
     } catch (e) {
       print('❌ Auto login error: $e');
-      print('📋 Error details: ${e.toString()}');
       return false;
     }
   }
@@ -112,6 +99,16 @@ class AuthProvider with ChangeNotifier {
       if (result != null && result['user'] != null) {
         // Get user info from response
         final userData = result['user'];
+
+        // If backend returns verification status, enforce it here
+        final dynamic verifiedFlag = userData['is_verified'] ??
+            userData['email_verified'] ??
+            userData['isEmailVerified'];
+        if (verifiedFlag is bool && verifiedFlag == false) {
+          await ApiService.logout(); // remove stored token if any
+          _setError('Email chưa được xác thực. Vui lòng kiểm tra email.');
+          return false;
+        }
 
         // Store user ID and all info
         final prefs = await SharedPreferences.getInstance();
@@ -137,7 +134,8 @@ class AuthProvider with ChangeNotifier {
       _setError('Tên đăng nhập/email hoặc mật khẩu không đúng');
       return false;
     } catch (e) {
-      _setError('Lỗi đăng nhập: ${e.toString()}');
+      final msg = e.toString().replaceFirst('Exception: ', '');
+      _setError(msg);
       return false;
     } finally {
       _setLoading(false);
@@ -167,27 +165,14 @@ class AuthProvider with ChangeNotifier {
       );
 
       if (result != null) {
-        // Store all user data (same as sign in)
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('user_id', result['id'].toString());
-        await prefs.setString('username', result['username'] ?? '');
-        await prefs.setString('email', result['email'] ?? '');
-        await prefs.setString('first_name', result['first_name'] ?? '');
-        await prefs.setString('last_name', result['last_name'] ?? '');
-        await prefs.setString('role', result['role'] ?? '');
+        // Do NOT log the user in after registration.
+        // Only store email to support resend verification later.
+        await _storeEmail(result['email'] ?? email);
 
-        // Create user object
-        _currentUser = app_models.User(
-          id: result['id'],
-          email: result['email'] ?? '',
-          isAdmin: result['role'] == 'admin',
-        );
-
-        // Store email for auto login
-        await _storeEmail(result['email'] ?? '');
-
-        print('✅ User registered and data stored');
+        // Ensure not logged in yet
+        _currentUser = null;
         notifyListeners();
+        print('✅ Registered successfully. Awaiting email verification.');
         return true;
       } else {
         _setError('Đăng ký thất bại. Username hoặc email đã được sử dụng.');
@@ -216,6 +201,50 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
     } catch (e) {
       print('❌ Sign out error: $e');
+    }
+  }
+
+  // Đổi mật khẩu khi đang đăng nhập
+  Future<bool> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      if (!isLoggedIn) {
+        _setError('Bạn chưa đăng nhập.');
+        return false;
+      }
+
+      int? uid = _currentUser?.id;
+      if (uid == null) {
+        final prefs = await SharedPreferences.getInstance();
+        uid = int.tryParse(prefs.getString('user_id') ?? '');
+      }
+      if (uid == null) {
+        _setError('Không xác định được người dùng.');
+        return false;
+      }
+
+      final result = await ApiService.changePassword(
+        userId: uid,
+        currentPassword: currentPassword,
+        newPassword: newPassword,
+      );
+
+      if (result['ok'] == true) {
+        return true;
+      } else {
+        _setError(result['message']?.toString() ?? 'Đổi mật khẩu thất bại.');
+        return false;
+      }
+    } catch (e) {
+      _setError('Lỗi: ${e.toString()}');
+      return false;
+    } finally {
+      _setLoading(false);
     }
   }
 

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider_new.dart';
 import 'login_screen.dart';
 import 'main_screen.dart';
+import 'verify_email_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -65,8 +66,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
         if (!mounted) return;
 
         if (success) {
+          // Sau khi đăng ký, yêu cầu xác thực email trước khi đăng nhập
           Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const MainScreen()),
+            MaterialPageRoute(
+              builder: (context) => VerifyEmailScreen(
+                email: _emailController.text.trim(),
+              ),
+            ),
           );
         } else {
           setState(() {

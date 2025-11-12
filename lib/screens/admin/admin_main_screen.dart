@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'admin_category_screen.dart';
 import 'admin_product_screen.dart';
 import 'admin_order_screen.dart';
+import 'admin_voucher_dashboard_screen.dart';
 import 'admin_settings_screen.dart';
 
 class AdminMainScreen extends StatefulWidget {
@@ -19,6 +20,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
     const AdminCategoryScreen(),
     const AdminProductScreen(),
     const AdminOrderScreen(),
+    const AdminVoucherDashboardScreen(),
     const AdminSettingsScreen(),
   ];
 
@@ -79,6 +81,10 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
             BottomNavigationBarItem(
               icon: Icon(Icons.shopping_cart),
               label: 'Đơn hàng',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.discount),
+              label: 'Voucher',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.settings),

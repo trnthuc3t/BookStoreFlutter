@@ -12,6 +12,8 @@ class Voucher {
   int maxUses; // Maximum number of uses
   int remainingUses; // Remaining uses
   bool isActive;
+  String? discountType; // 'percentage', 'fixed_amount', 'free_shipping'
+  double? discountValue; // The actual discount value from backend
 
   Voucher({
     this.id = 0,
@@ -27,26 +29,57 @@ class Voucher {
     this.maxUses = 1,
     this.remainingUses = 1,
     this.isActive = true,
+    this.discountType,
+    this.discountValue,
   });
 
   factory Voucher.fromJson(Map<String, dynamic> json) {
-    return Voucher(
-      id: json['id'] ?? 0,
-      name: json['name'],
-      description: json['description'],
-      discount: json['discount'] ?? 0,
-      code: json['code'],
-      minPrice: json['minPrice'] ?? 0,
-      maxDiscount: json['maxDiscount'] ?? 0,
-      startDate: json['startDate'],
-      endDate: json['endDate'],
-      expiryDate: json['expiryDate'] != null 
-          ? DateTime.tryParse(json['expiryDate'].toString())
-          : null,
-      maxUses: json['maxUses'] ?? 1,
-      remainingUses: json['remainingUses'] ?? 1,
-      isActive: json['isActive'] ?? true,
-    );
+    try {
+      return Voucher(
+        id: json['id'] ?? 0,
+        name: json['name']?.toString(),
+        description: json['description']?.toString(),
+        discount: _parseInt(json['discount']) ?? 0,
+        code: json['code']?.toString(),
+        minPrice: _parseInt(json['minPrice']) ?? 0,
+        maxDiscount: _parseInt(json['maxDiscount']) ?? 0,
+        startDate: json['startDate']?.toString(),
+        endDate: json['endDate']?.toString(),
+        expiryDate: json['expiryDate'] != null 
+            ? DateTime.tryParse(json['expiryDate'].toString())
+            : null,
+        maxUses: _parseInt(json['maxUses']) ?? 1,
+        remainingUses: _parseInt(json['remainingUses']) ?? 1,
+        isActive: json['isActive'] == true || json['isActive'] == 'true',
+        discountType: json['discount_type']?.toString(),
+        discountValue: _parseDouble(json['discount_value']),
+      );
+    } catch (e) {
+      print('⚠️ Error parsing Voucher from JSON: $e');
+      print('JSON data: $json');
+      // Return a minimal valid voucher on error
+      return Voucher(
+        id: json['id'] ?? 0,
+        name: json['name']?.toString() ?? 'Unknown',
+        code: json['code']?.toString() ?? 'UNKNOWN',
+      );
+    }
+  }
+  
+  static int? _parseInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+  
+  static double? _parseDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
   }
 
   Map<String, dynamic> toJson() {
@@ -64,6 +97,8 @@ class Voucher {
       'maxUses': maxUses,
       'remainingUses': remainingUses,
       'isActive': isActive,
+      'discount_type': discountType,
+      'discount_value': discountValue,
     };
   }
 
@@ -94,6 +129,8 @@ class Voucher {
     int? maxUses,
     int? remainingUses,
     bool? isActive,
+    String? discountType,
+    double? discountValue,
   }) {
     return Voucher(
       id: id ?? this.id,
@@ -109,6 +146,8 @@ class Voucher {
       maxUses: maxUses ?? this.maxUses,
       remainingUses: remainingUses ?? this.remainingUses,
       isActive: isActive ?? this.isActive,
+      discountType: discountType ?? this.discountType,
+      discountValue: discountValue ?? this.discountValue,
     );
   }
 }

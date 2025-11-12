@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/api_constants.dart';
@@ -46,11 +47,13 @@ class ApiService {
   static Future<Map<String, dynamic>?> login(
       String username, String password) async {
     try {
-      final response = await http.post(
-        Uri.parse(ApiConstants.loginUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'username': username, 'password': password}),
-      );
+      final response = await http
+          .post(
+            Uri.parse(ApiConstants.loginUrl),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'username': username, 'password': password}),
+          )
+          .timeout(const Duration(seconds: 12));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -58,19 +61,53 @@ class ApiService {
         return data;
       }
 
-      // Try to parse error detail from response
-      String errorMsg = 'Đăng nhập thất bại';
+      // Parse server error
+      Map<String, dynamic>? errorData;
       try {
-        final errorData = jsonDecode(response.body) as Map<String, dynamic>;
-        errorMsg = errorData['detail'] ?? errorMsg;
-      } catch (e) {
-        print('Could not parse error response');
+        errorData = jsonDecode(response.body) as Map<String, dynamic>;
+      } catch (_) {
+        errorData = null;
+      }
+      final detail = (errorData?['detail'] ?? errorData?['message'] ?? errorData?['error'] ?? '').toString();
+      final code = (errorData?['code'] ?? '').toString().toLowerCase();
+
+      String friendly;
+      switch (response.statusCode) {
+        case 401:
+        case 400:
+          friendly = 'Tên đăng nhập/email hoặc mật khẩu không đúng';
+          break;
+        case 404:
+          friendly = 'Tài khoản không tồn tại';
+          break;
+        case 403:
+          final text = (detail + code).toLowerCase();
+          if (text.contains('verify') || text.contains('unverified')) {
+            friendly = 'Email chưa được xác thực. Vui lòng kiểm tra email.';
+          } else {
+            friendly = 'Bạn không có quyền đăng nhập';
+          }
+          break;
+        case 423:
+          friendly = 'Tài khoản đã bị khóa tạm thời';
+          break;
+        case 429:
+          friendly = 'Quá nhiều lần thử. Vui lòng thử lại sau';
+          break;
+        default:
+          if (response.statusCode >= 500) {
+            friendly = 'Máy chủ đang gặp sự cố. Vui lòng thử lại sau';
+          } else {
+            friendly = detail.isNotEmpty ? detail : 'Đăng nhập thất bại';
+          }
       }
 
-      throw Exception(errorMsg);
+      throw Exception(friendly);
+    } on TimeoutException {
+      throw Exception('Kết nối quá hạn. Vui lòng thử lại.');
     } catch (e) {
       print('Login error: $e');
-      rethrow;
+      throw Exception('Không thể kết nối đến máy chủ. Vui lòng thử lại.');
     }
   }
 
@@ -572,6 +609,127 @@ class ApiService {
 
   // Orders
 
+  // Vouchers
+  static Future<List<dynamic>> getVouchers({int? userId}) async {
+    try {
+      String url = '${ApiConstants.baseUrl}/api/vouchers';
+      if (userId != null) url += '?user_id=$userId';
+      final response = await http.get(
+        Uri.parse(url),
+        headers: await _getHeaders(),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['vouchers'] ?? [];
+      } else {
+        print('Get vouchers failed: ${response.statusCode}');
+      }
+      return [];
+    } catch (e) {
+      print('Get vouchers error: $e');
+      return [];
+    }
+  }
+
+  static Future<Map<String, dynamic>?> validateVoucher({
+    required int userId,
+    required String code,
+  }) async {
+    try {
+      print('🎫 [API] Validating voucher: $code for user: $userId');
+      final response = await http.post(
+        Uri.parse('${ApiConstants.baseUrl}/api/vouchers/validate'),
+        headers: await _getHeaders(),
+        body: jsonEncode({
+          'user_id': userId,
+          'code': code,
+        }),
+      );
+
+      print('🎫 [API] Response status: ${response.statusCode}');
+      print('🎫 [API] Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        print('🎫 [API] Success! Valid: ${data['valid']}');
+        return data;
+      }
+
+      // Parse error response và trả về với valid: false
+      try {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        print('🎫 [API] Error response: $data');
+        return {
+          'valid': false,
+          'reason': data['detail'] ?? 'Không áp dụng được voucher',
+        };
+      } catch (_) {
+        print('🎫 [API] Failed to parse error response');
+        return {
+          'valid': false,
+          'reason': 'Không áp dụng được voucher',
+        };
+      }
+    } catch (e) {
+      print('❌ [API] Validate voucher error: $e');
+      return null;  // null = network error
+    }
+  }
+
+  static Future<Map<String, dynamic>?> validateVoucherWithCart({
+    required int userId,
+    required String code,
+    required List<Map<String, dynamic>> cartItems,
+    required double subtotal,
+  }) async {
+    try {
+      print('🎫 Validating voucher $code with cart: ${cartItems.length} items, subtotal: $subtotal');
+      final response = await http.post(
+        Uri.parse('${ApiConstants.baseUrl}/api/vouchers/validate'),
+        headers: await _getHeaders(),
+        body: jsonEncode({
+          'user_id': userId,
+          'code': code,
+          'items': cartItems,
+          'subtotal': subtotal,
+        }),
+      );
+      
+      print('🎫 Validate response: ${response.statusCode}');
+      print('🎫 Response body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      
+      // Try parse error
+      try {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return {
+          'valid': false,
+          'reason': data['detail'] ?? 'Không áp dụng được voucher',
+          'discount_amount': 0,
+          'shipping_discount': 0,
+        };
+      } catch (_) {
+        return {
+          'valid': false,
+          'reason': 'Không áp dụng được voucher',
+          'discount_amount': 0,
+          'shipping_discount': 0,
+        };
+      }
+    } catch (e) {
+      print('❌ Validate voucher with cart error: $e');
+      return {
+        'valid': false,
+        'reason': 'Lỗi kết nối',
+        'discount_amount': 0,
+        'shipping_discount': 0,
+      };
+    }
+  }
+
   // User
   static Future<Map<String, dynamic>?> getCurrentUser(int userId) async {
     try {
@@ -587,6 +745,45 @@ class ApiService {
     } catch (e) {
       print('Get current user error: $e');
       return null;
+    }
+  }
+
+  // Change password for logged-in user (backend expects POST /api/users/{userId}/change-password)
+  // Returns {'ok': bool, 'message': String?}
+  static Future<Map<String, dynamic>> changePassword({
+    required int userId,
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final headers = await _getHeaders();
+      final uri = Uri.parse('${ApiConstants.usersUrl}/$userId/change-password');
+      final body = jsonEncode({
+        'current_password': currentPassword,
+        'new_password': newPassword,
+      });
+
+      final response = await http.post(uri, headers: headers, body: body);
+
+      if (response.statusCode == 200) {
+        return {'ok': true, 'message': null};
+      }
+
+      // Parse error message if available
+      String? message;
+      try {
+        final data = jsonDecode(response.body);
+        if (data is Map) {
+          message = data['detail']?.toString() ?? data['message']?.toString() ?? data['error']?.toString();
+        }
+      } catch (_) {}
+      message ??= 'Đổi mật khẩu thất bại';
+
+      return {'ok': false, 'message': message};
+    } catch (e, st) {
+      print('Change password error: $e');
+      print('Stack trace: $st');
+      return {'ok': false, 'message': 'Không thể kết nối đến máy chủ'};
     }
   }
 
@@ -627,6 +824,45 @@ class ApiService {
     } catch (e) {
       print('Create address error: $e');
       return null;
+    }
+  }
+
+  static Future<Map<String, dynamic>?> updateAddress({
+    required int userId,
+    required int addressId,
+    required Map<String, dynamic> addressData,
+  }) async {
+    try {
+      final response = await http.put(
+        Uri.parse('${ApiConstants.usersUrl}/$userId/addresses/$addressId'),
+        headers: await _getHeaders(),
+        body: jsonEncode(addressData),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return null;
+    } catch (e) {
+      print('Update address error: $e');
+      return null;
+    }
+  }
+
+  static Future<bool> deleteAddress({
+    required int userId,
+    required int addressId,
+  }) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('${ApiConstants.usersUrl}/$userId/addresses/$addressId'),
+        headers: await _getHeaders(),
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Delete address error: $e');
+      return false;
     }
   }
 
@@ -1031,14 +1267,22 @@ class ApiService {
     required int userId,
     String paymentMethod = 'COD',
     String? notes,
+    String? voucherCode,
   }) async {
     try {
       print('🛍️ Creating simple order for user $userId...');
       print('💳 Payment method: $paymentMethod');
 
+      final queryParts = <String>[
+        'user_id=$userId',
+        'payment_method=${Uri.encodeComponent(paymentMethod)}',
+        if (notes != null) 'notes=${Uri.encodeComponent(notes)}',
+        if (voucherCode != null && voucherCode.isNotEmpty)
+          'voucher_code=${Uri.encodeComponent(voucherCode)}',
+      ].join('&');
+
       final response = await http.post(
-        Uri.parse(
-            '${ApiConstants.baseUrl}/api/orders/simple?user_id=$userId&payment_method=$paymentMethod${notes != null ? '&notes=$notes' : ''}'),
+        Uri.parse('${ApiConstants.baseUrl}/api/orders/simple?$queryParts'),
         headers: await _getHeaders(),
       );
 
@@ -1334,6 +1578,121 @@ class ApiService {
     } catch (e) {
       print('❌ Get book reviews error: $e');
       return [];
+    }
+  }
+
+  // =====================================================
+  // STATISTICS (ADMIN)
+  // =====================================================
+
+  /// Get revenue statistics
+  static Future<Map<String, dynamic>?> getRevenueStatistics({
+    required String period,
+    String? startDate,
+    String? endDate,
+  }) async {
+    try {
+      final queryParams = <String>[
+        'period=$period',
+        if (startDate != null) 'start_date=$startDate',
+        if (endDate != null) 'end_date=$endDate',
+      ].join('&');
+
+      final url = '${ApiConstants.baseUrl}/api/admin/statistics/revenue?$queryParams';
+      print('📊 Calling revenue statistics: $url');
+      
+      final response = await http.get(
+        Uri.parse(url),
+        headers: await _getHeaders(),
+      );
+
+      print('📊 Revenue statistics response status: ${response.statusCode}');
+      print('📊 Revenue statistics response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        print('📊 Revenue statistics data decoded: $data');
+        return data;
+      }
+      print('❌ Get revenue statistics error: ${response.statusCode}');
+      return null;
+    } catch (e) {
+      print('❌ Get revenue statistics error: $e');
+      return null;
+    }
+  }
+
+  /// Get book statistics
+  static Future<Map<String, dynamic>?> getBookStatistics({
+    required String period,
+    String? startDate,
+    String? endDate,
+  }) async {
+    try {
+      final queryParams = <String>[
+        'period=$period',
+        if (startDate != null) 'start_date=$startDate',
+        if (endDate != null) 'end_date=$endDate',
+      ].join('&');
+
+      final url = '${ApiConstants.baseUrl}/api/admin/statistics/books?$queryParams';
+      print('📊 Calling book statistics: $url');
+      
+      final response = await http.get(
+        Uri.parse(url),
+        headers: await _getHeaders(),
+      );
+
+      print('📊 Book statistics response status: ${response.statusCode}');
+      print('📊 Book statistics response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        print('📊 Book statistics data decoded: $data');
+        return data;
+      }
+      print('❌ Get book statistics error: ${response.statusCode}');
+      return null;
+    } catch (e) {
+      print('❌ Get book statistics error: $e');
+      return null;
+    }
+  }
+
+  /// Get category statistics
+  static Future<Map<String, dynamic>?> getCategoryStatistics({
+    required String period,
+    String? startDate,
+    String? endDate,
+  }) async {
+    try {
+      final queryParams = <String>[
+        'period=$period',
+        if (startDate != null) 'start_date=$startDate',
+        if (endDate != null) 'end_date=$endDate',
+      ].join('&');
+
+      final url = '${ApiConstants.baseUrl}/api/admin/statistics/categories?$queryParams';
+      print('📊 Calling category statistics: $url');
+      
+      final response = await http.get(
+        Uri.parse(url),
+        headers: await _getHeaders(),
+      );
+
+      print('📊 Category statistics response status: ${response.statusCode}');
+      print('📊 Category statistics response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        print('📊 Category statistics data decoded: $data');
+        return data;
+      }
+      print('❌ Get category statistics error: ${response.statusCode}');
+      return null;
+    } catch (e) {
+      print('❌ Get category statistics error: $e');
+      return null;
     }
   }
 }

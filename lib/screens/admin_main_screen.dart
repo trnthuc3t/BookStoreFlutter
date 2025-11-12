@@ -4,6 +4,8 @@ import '../providers/auth_provider_new.dart';
 import '../services/api_service.dart';
 import 'package:intl/intl.dart';
 import 'admin_product_form_screen.dart';
+import 'admin/admin_statistics_screen.dart';
+import 'admin/admin_voucher_dashboard_screen.dart';
 
 /// Main screen for Admin with completely different UI
 class AdminMainScreen extends StatefulWidget {
@@ -20,6 +22,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
     const AdminDashboardTab(),
     const AdminOrdersTab(),
     const AdminProductsTab(),
+    const AdminVoucherDashboardScreen(),
     const AdminUsersTab(),
   ];
 
@@ -88,6 +91,10 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.inventory),
             label: 'Sản phẩm',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.discount),
+            label: 'Voucher',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.people),
@@ -252,6 +259,31 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
                 Colors.purple,
               ),
             ],
+          ),
+          const SizedBox(height: 24),
+
+          // Statistics Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const AdminStatisticsScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.analytics),
+              label: const Text('Xem thống kê chi tiết'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
           ),
           const SizedBox(height: 24),
 

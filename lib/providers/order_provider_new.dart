@@ -47,28 +47,20 @@ class OrderProvider with ChangeNotifier {
     }
   }
 
-  Future<void> loadVouchers() async {
+  Future<void> loadVouchers({int? userId}) async {
     _setLoading(true);
     _clearError();
 
     try {
-      // This would need voucher endpoint in ApiService
-      // For now, create some dummy vouchers
-      _vouchers = [
-        Voucher(
-          id: 1,
-          code: 'SAVE10',
-          discount: 10,
-          isActive: true,
-        ),
-        Voucher(
-          id: 2,
-          code: 'WELCOME20',
-          discount: 20,
-          isActive: true,
-        ),
-      ];
-      print('Loaded ${_vouchers.length} vouchers');
+      final data = await ApiService.getVouchers(userId: userId);
+      print('Loaded ${data.length} vouchers from API');
+      
+      _vouchers = data.map<Voucher>((item) {
+        // Use Voucher.fromJson for safe parsing
+        return Voucher.fromJson(item);
+      }).toList();
+      print('Successfully parsed ${_vouchers.length} vouchers');
+      notifyListeners();
     } catch (e) {
       _setError('Lỗi tải voucher: ${e.toString()}');
       print('Error loading vouchers: $e');

@@ -21,7 +21,7 @@ class ProductGridWidget extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 0.75, // Increased from 0.7 to give more height
+        childAspectRatio: 0.63,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
       ),
@@ -41,79 +41,56 @@ class ProductGridWidget extends StatelessWidget {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
         ),
+        clipBehavior: Clip.antiAlias,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Product image with out of stock overlay
+            // Phần ảnh
             Expanded(
-              flex: 3,
+              flex: 7,
               child: Stack(
+                fit: StackFit.expand,
                 children: [
-                  Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      borderRadius:
-                          const BorderRadius.vertical(top: Radius.circular(8)),
-                      color: Colors.grey.shade100,
+                  CachedNetworkImage(
+                    imageUrl: ImageUtils.normalizeImageUrl(product.image ?? '') ?? '',
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => const Center(
+                      child: CircularProgressIndicator(),
                     ),
-                    child: ClipRRect(
-                      borderRadius:
-                          const BorderRadius.vertical(top: Radius.circular(8)),
-                      child: product.image != null
-                          ? CachedNetworkImage(
-                              imageUrl: ImageUtils.normalizeImageUrl(
-                                      product.image!) ??
-                                  '',
-                              fit: BoxFit.cover,
-                              placeholder: (context, url) => const Center(
-                                child: CircularProgressIndicator(),
-                              ),
-                              errorWidget: (context, url, error) =>
-                                  const Center(
-                                child: Icon(Icons.book,
-                                    size: 50, color: Colors.grey),
-                              ),
-                            )
-                          : const Center(
-                              child: Icon(Icons.book,
-                                  size: 50, color: Colors.grey),
-                            ),
+                    errorWidget: (context, url, error) => const Center(
+                      child: Icon(Icons.book, size: 50, color: Colors.grey),
                     ),
                   ),
-
-                  // Out of stock overlay
                   if (product.count <= 0)
-                    Positioned.fill(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.6),
-                          borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(8)),
+                    Container(
+                      color: Colors.black.withOpacity(0.6),
+                      child: const Center(
+                        child: Text(
+                          'HẾT HÀNG',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
                         ),
-                        child: Center(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.95),
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Colors.red,
-                                width: 2,
-                              ),
-                            ),
-                            child: const Text(
-                              'HẾT\nHÀNG',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.red,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 11,
-                                height: 1.2,
-                              ),
-                            ),
+                      ),
+                    ),
+                  if (product.isFeatured)
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.orange,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'Nổi bật',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
@@ -122,31 +99,26 @@ class ProductGridWidget extends StatelessWidget {
               ),
             ),
 
-            // Product info
+            // Phần thông tin
             Expanded(
-              flex: 2,
+              flex: 4,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                padding: const EdgeInsets.all(8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Product name
-                    Flexible(
-                      child: Text(
-                        product.name ?? '',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                          height: 1.2,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                    Text(
+                      product.name ?? '',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                        height: 1.2,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
-
-                    // Rating - Made more compact
+                    const SizedBox(height: 2),
                     Row(
                       children: [
                         const Icon(Icons.star, color: Colors.amber, size: 12),
@@ -160,12 +132,9 @@ class ProductGridWidget extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
-
-                    // Price - Simplified layout
-                    Wrap(
-                      spacing: 4,
-                      runSpacing: 4,
+                    const Spacer(),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
                           '${(product.realPrice / 1000).toStringAsFixed(0)}k',
@@ -174,13 +143,11 @@ class ProductGridWidget extends StatelessWidget {
                             color: Colors.blue,
                             fontSize: 13,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
-                        if (product.sale > 0) ...[
+                        const SizedBox(width: 4),
+                        if (product.sale > 0)
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 4, vertical: 1),
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                             decoration: BoxDecoration(
                               color: Colors.red,
                               borderRadius: BorderRadius.circular(3),
@@ -192,42 +159,17 @@ class ProductGridWidget extends StatelessWidget {
                                 fontSize: 9,
                                 fontWeight: FontWeight.bold,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          if (product.price != product.realPrice)
-                            Text(
-                              '${(product.price / 1000).toStringAsFixed(0)}k',
-                              style: const TextStyle(
-                                decoration: TextDecoration.lineThrough,
-                                color: Colors.grey,
-                                fontSize: 10,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                        ],
                       ],
                     ),
-
-                    // Featured badge
-                    if (product.isFeatured)
-                      Container(
-                        margin: const EdgeInsets.only(top: 4),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.orange,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Text(
-                          'Nổi bật',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
+                    if (product.sale > 0 && product.price != product.realPrice)
+                      Text(
+                        '${(product.price / 1000).toStringAsFixed(0)}k',
+                        style: const TextStyle(
+                          decoration: TextDecoration.lineThrough,
+                          color: Colors.grey,
+                          fontSize: 10,
                         ),
                       ),
                   ],

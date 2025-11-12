@@ -95,7 +95,7 @@ class VoucherListWidget extends StatelessWidget {
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
-                            'Giảm ${voucher.discount}%',
+                            _getDiscountText(voucher),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 12,
@@ -105,11 +105,13 @@ class VoucherListWidget extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         if (voucher.minPrice > 0)
-                          Text(
-                            'Đơn tối thiểu ${voucher.minPrice}k',
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 12,
+                          Flexible(
+                            child: Text(
+                              'Đơn tối thiểu ${voucher.minPrice}k',
+                              style: const TextStyle(
+                                color: Colors.grey,
+                                fontSize: 12,
+                              ),
                             ),
                           ),
                       ],
@@ -139,5 +141,31 @@ class VoucherListWidget extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _getDiscountText(Voucher voucher) {
+    // Use discountType if available from backend
+    if (voucher.discountType != null && voucher.discountValue != null) {
+      switch (voucher.discountType) {
+        case 'percentage':
+          return 'Giảm ${voucher.discountValue!.toInt()}%';
+        case 'fixed_amount':
+          final amount = (voucher.discountValue! / 1000).toInt();
+          return 'Giảm ${amount}k';
+        case 'free_shipping':
+          return 'Miễn phí vận chuyển';
+        default:
+          return 'Giảm giá';
+      }
+    }
+    
+    // Fallback to old logic
+    if (voucher.discount > 0) {
+      return 'Giảm ${voucher.discount}%';
+    } else if (voucher.maxDiscount > 0) {
+      return 'Giảm tới ${voucher.maxDiscount}k';
+    } else {
+      return 'Miễn phí vận chuyển';
+    }
   }
 }

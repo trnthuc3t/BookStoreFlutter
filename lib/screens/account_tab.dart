@@ -4,7 +4,8 @@ import '../providers/auth_provider_new.dart' as api_auth;
 import 'login_screen.dart';
 import 'change_password_screen.dart';
 import 'feedback_screen.dart';
-import 'cart_screen.dart';
+import 'cart_screen_new.dart';
+import 'address_screen.dart';
 
 class AccountTab extends StatelessWidget {
   const AccountTab({super.key});
@@ -101,7 +102,7 @@ class AccountTab extends StatelessWidget {
                       () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (context) => const CartScreen(),
+                            builder: (context) => const CartScreenNew(),
                           ),
                         );
                       },
@@ -111,7 +112,11 @@ class AccountTab extends StatelessWidget {
                       Icons.location_on_outlined,
                       'Địa chỉ giao hàng',
                       () {
-                        // TODO: Navigate to addresses
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const AddressScreen(),
+                          ),
+                        );
                       },
                     ),
                   ],

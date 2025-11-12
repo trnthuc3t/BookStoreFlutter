@@ -1,6 +1,6 @@
 class ApiConstants {
-  // Base URL - Sử dụng Dev Tunnels từ VS Code
-  static const String baseUrl = 'https://xrjssx4r-7000.asse.devtunnels.ms';
+
+  static const String baseUrl = 'https://xrjssx4r-8000.asse.devtunnels.ms';
 
 
   // API Endpoints
@@ -16,7 +16,6 @@ class ApiConstants {
   // Users
   static const String usersUrl = '$baseUrl$apiPrefix/users';
   static const String userAddressesUrl = '$baseUrl$apiPrefix/users';
-  static const String changePasswordUrl = '$baseUrl$apiPrefix/users';
 
   // Books
   static const String booksUrl = '$baseUrl$apiPrefix/books';

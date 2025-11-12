@@ -6,7 +6,7 @@ import '../providers/cart_provider_new.dart';
 import '../widgets/product_grid_widget.dart';
 import '../utils/image_utils.dart';
 import 'product_detail_api_screen.dart';
-import 'cart_screen.dart';
+import 'cart_screen_new.dart';
 
 class HomeTab extends StatefulWidget {
   const HomeTab({super.key});
@@ -48,7 +48,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
                     onPressed: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (context) => const CartScreen(),
+                          builder: (context) => const CartScreenNew(),
                         ),
                       );
                     },
