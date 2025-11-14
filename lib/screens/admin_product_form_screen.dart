@@ -36,7 +36,11 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
   // Dropdowns
   List<dynamic> _categories = [];
   List<dynamic> _authors = [];
+  List<dynamic> _publishers = [];
+  List<dynamic> _suppliers = [];
   int? _selectedCategoryId;
+  int? _selectedPublisherId;
+  int? _selectedSupplierId;
   List<int> _selectedAuthorIds = []; // Selected author IDs
   String _selectedLanguage = 'Vietnamese';
   String _selectedCoverType = 'paperback';
@@ -67,18 +71,38 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
         TextEditingController(text: product?['pages']?.toString() ?? '');
     _yearController = TextEditingController(
         text: product?['publication_year']?.toString() ?? '');
-    _lengthController = TextEditingController(text: '');
-    _widthController = TextEditingController(text: '');
-    _thicknessController = TextEditingController(text: '');
-    _weightController = TextEditingController(text: '');
+    _lengthController = TextEditingController(
+        text: product?['length']?.toString() ?? '');
+    _widthController = TextEditingController(
+        text: product?['width']?.toString() ?? '');
+    _thicknessController = TextEditingController(
+        text: product?['thickness']?.toString() ?? '');
+    _weightController = TextEditingController(
+        text: product?['weight']?.toString() ?? '');
 
     _isActive = product?['is_active'] ?? true;
 
     // Load category - handle both direct id and nested object
     if (product?['category_id'] != null) {
-      _selectedCategoryId = product!['category_id'];
+      _selectedCategoryId = product!['category_id'] is int
+          ? product['category_id']
+          : int.tryParse(product['category_id'].toString());
     } else if (product?['category'] != null && product!['category'] is Map) {
-      _selectedCategoryId = product['category']['id'];
+      _selectedCategoryId = product['category']['id'] is int
+          ? product['category']['id']
+          : int.tryParse(product['category']['id'].toString());
+    }
+
+    // Load publisher and supplier
+    if (product?['publisher'] != null && product!['publisher'] is Map) {
+      _selectedPublisherId = product['publisher']['id'] is int
+          ? product['publisher']['id']
+          : int.tryParse(product['publisher']['id'].toString());
+    }
+    if (product?['supplier'] != null && product!['supplier'] is Map) {
+      _selectedSupplierId = product['supplier']['id'] is int
+          ? product['supplier']['id']
+          : int.tryParse(product['supplier']['id'].toString());
     }
 
     // Load language and cover_type
@@ -103,8 +127,19 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
       print('📸 Loaded ${_existingImageUrls.length} existing images');
     }
 
+    // Load existing authors if editing
+    if (product != null && product['authors'] != null) {
+      final authors = product['authors'] as List<dynamic>;
+      _selectedAuthorIds = authors
+          .map((author) => author['id'] as int)
+          .toList();
+      print('👤 Loaded ${_selectedAuthorIds.length} existing authors');
+    }
+
     _loadCategories();
     _loadAuthors();
+    _loadPublishers();
+    _loadSuppliers();
   }
 
   Future<void> _loadCategories() async {
@@ -124,6 +159,26 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
         _authors = authors;
       });
       print('👤 Loaded ${authors.length} authors');
+    }
+  }
+
+  Future<void> _loadPublishers() async {
+    final publishers = await ApiService.getPublishers();
+    if (mounted) {
+      setState(() {
+        _publishers = publishers;
+      });
+      print('🏢 Loaded ${publishers.length} publishers');
+    }
+  }
+
+  Future<void> _loadSuppliers() async {
+    final suppliers = await ApiService.getSuppliers();
+    if (mounted) {
+      setState(() {
+        _suppliers = suppliers;
+      });
+      print('🚚 Loaded ${suppliers.length} suppliers');
     }
   }
 
@@ -163,6 +218,203 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('✅ Đã thêm tác giả: $result')),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _showAddPublisherDialog() async {
+    final nameController = TextEditingController();
+    final emailController = TextEditingController();
+    final phoneController = TextEditingController();
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Thêm nhà xuất bản mới'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Tên nhà xuất bản *',
+                  border: OutlineInputBorder(),
+                  hintText: 'VD: NXB Kim Đồng',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: emailController,
+                decoration: const InputDecoration(
+                  labelText: 'Email liên hệ',
+                  border: OutlineInputBorder(),
+                  hintText: 'VD: contact@kimdong.com.vn',
+                ),
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: phoneController,
+                decoration: const InputDecoration(
+                  labelText: 'Số điện thoại',
+                  border: OutlineInputBorder(),
+                  hintText: 'VD: 0123456789',
+                ),
+                keyboardType: TextInputType.phone,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (nameController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Vui lòng nhập tên nhà xuất bản')),
+                );
+                return;
+              }
+              Navigator.pop(context, true);
+            },
+            child: const Text('Thêm'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true) {
+      final publisherData = await ApiService.createPublisher(
+        name: nameController.text.trim(),
+        contactEmail: emailController.text.trim().isEmpty ? null : emailController.text.trim(),
+        contactPhone: phoneController.text.trim().isEmpty ? null : phoneController.text.trim(),
+      );
+      
+      if (publisherData != null) {
+        await _loadPublishers();
+        if (mounted) {
+          setState(() {
+            _selectedPublisherId = publisherData['id'];
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('✅ Đã thêm nhà xuất bản: ${nameController.text.trim()}')),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _showAddSupplierDialog() async {
+    final nameController = TextEditingController();
+    final contactPersonController = TextEditingController();
+    final emailController = TextEditingController();
+    final phoneController = TextEditingController();
+    final addressController = TextEditingController();
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Thêm nhà cung cấp mới'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Tên nhà cung cấp *',
+                  border: OutlineInputBorder(),
+                  hintText: 'VD: Công ty TNHH Sách ABC',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: contactPersonController,
+                decoration: const InputDecoration(
+                  labelText: 'Người liên hệ',
+                  border: OutlineInputBorder(),
+                  hintText: 'VD: Nguyễn Văn A',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: emailController,
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  border: OutlineInputBorder(),
+                  hintText: 'VD: contact@abc.com',
+                ),
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: phoneController,
+                decoration: const InputDecoration(
+                  labelText: 'Số điện thoại',
+                  border: OutlineInputBorder(),
+                  hintText: 'VD: 0123456789',
+                ),
+                keyboardType: TextInputType.phone,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: addressController,
+                decoration: const InputDecoration(
+                  labelText: 'Địa chỉ',
+                  border: OutlineInputBorder(),
+                  hintText: 'VD: 123 Đường ABC, Quận 1, TP.HCM',
+                ),
+                maxLines: 2,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (nameController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Vui lòng nhập tên nhà cung cấp')),
+                );
+                return;
+              }
+              Navigator.pop(context, true);
+            },
+            child: const Text('Thêm'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true) {
+      final supplierData = await ApiService.createSupplier(
+        name: nameController.text.trim(),
+        contactPerson: contactPersonController.text.trim().isEmpty ? null : contactPersonController.text.trim(),
+        email: emailController.text.trim().isEmpty ? null : emailController.text.trim(),
+        phone: phoneController.text.trim().isEmpty ? null : phoneController.text.trim(),
+        address: addressController.text.trim().isEmpty ? null : addressController.text.trim(),
+      );
+      
+      if (supplierData != null) {
+        await _loadSuppliers();
+        if (mounted) {
+          setState(() {
+            _selectedSupplierId = supplierData['id'];
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('✅ Đã thêm nhà cung cấp: ${nameController.text.trim()}')),
           );
         }
       }
@@ -297,6 +549,8 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
       pages: int.tryParse(_pagesController.text),
       publicationYear: int.tryParse(_yearController.text),
       categoryId: _selectedCategoryId,
+      publisherId: _selectedPublisherId,
+      supplierId: _selectedSupplierId,
       language: _selectedLanguage,
       coverType: _selectedCoverType,
       length: double.tryParse(_lengthController.text),
@@ -321,7 +575,8 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
   Future<void> _updateProduct() async {
     final bookId = widget.product!['id'];
 
-    // Step 1: Update book details
+    // Step 1: Update book details with ALL fields
+    print('📝 Updating book with full details...');
     final success = await ApiService.updateBook(
       bookId: bookId,
       title: _titleController.text.trim(),
@@ -331,6 +586,18 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
       discountPercentage: double.tryParse(_discountPercentageController.text),
       stockQuantity: int.tryParse(_stockController.text),
       isActive: _isActive,
+      // Additional fields
+      categoryId: _selectedCategoryId,
+      publisherId: _selectedPublisherId,
+      supplierId: _selectedSupplierId,
+      language: _selectedLanguage,
+      coverType: _selectedCoverType,
+      pages: int.tryParse(_pagesController.text),
+      publicationYear: int.tryParse(_yearController.text),
+      length: double.tryParse(_lengthController.text),
+      width: double.tryParse(_widthController.text),
+      thickness: double.tryParse(_thicknessController.text),
+      weight: int.tryParse(_weightController.text),
     );
 
     if (!success) {
@@ -345,7 +612,22 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
       return;
     }
 
-    // Step 2: Upload new images if any
+    // Step 2: Update authors
+    if (_selectedAuthorIds.isNotEmpty) {
+      print('👤 Updating ${_selectedAuthorIds.length} authors...');
+      final authorsSuccess = await ApiService.updateBookAuthors(
+        bookId: bookId,
+        authorIds: _selectedAuthorIds,
+      );
+
+      if (!authorsSuccess) {
+        print('⚠️ Failed to update authors');
+      } else {
+        print('✅ Authors updated successfully');
+      }
+    }
+
+    // Step 3: Upload new images if any
     if (_newImages.isNotEmpty) {
       print('📸 Uploading ${_newImages.length} new images...');
       final uploadSuccess = await ApiService.uploadBookImages(
@@ -430,28 +712,129 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
                     const SizedBox(height: 16),
 
                     // Category Dropdown
-                    DropdownButtonFormField<int>(
+                    DropdownButtonFormField<int?>(
                       value: _selectedCategoryId,
                       decoration: const InputDecoration(
                         labelText: 'Thể loại',
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.category),
                       ),
-                      items: [
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text('-- Chọn thể loại --'),
-                        ),
-                        ..._categories.map((category) {
-                          return DropdownMenuItem<int>(
-                            value: category['id'],
-                            child: Text(category['name']),
-                          );
-                        }),
-                      ],
+                      hint: const Text('-- Chọn thể loại --'),
+                      items: _categories.map((category) {
+                        return DropdownMenuItem<int>(
+                          value: category['id'],
+                          child: Text(category['name']),
+                        );
+                      }).toList(),
                       onChanged: (value) {
                         setState(() => _selectedCategoryId = value);
                       },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Publisher Dropdown
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Expanded(
+                                  child: Text(
+                                    'Nhà xuất bản',
+                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                TextButton.icon(
+                                  icon: const Icon(Icons.add, size: 18),
+                                  label: const Text('Thêm', style: TextStyle(fontSize: 13)),
+                                  onPressed: _showAddPublisherDialog,
+                                  style: TextButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    minimumSize: const Size(0, 32),
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            DropdownButtonFormField<int?>(
+                              value: _selectedPublisherId,
+                              decoration: const InputDecoration(
+                                labelText: 'Chọn nhà xuất bản',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.business),
+                              ),
+                              hint: const Text('-- Không chọn --'),
+                              items: _publishers.map((publisher) {
+                                return DropdownMenuItem<int>(
+                                  value: publisher['id'],
+                                  child: Text(publisher['name']),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                setState(() => _selectedPublisherId = value);
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Supplier Dropdown
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Expanded(
+                                  child: Text(
+                                    'Nhà cung cấp',
+                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                TextButton.icon(
+                                  icon: const Icon(Icons.add, size: 18),
+                                  label: const Text('Thêm', style: TextStyle(fontSize: 13)),
+                                  onPressed: _showAddSupplierDialog,
+                                  style: TextButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    minimumSize: const Size(0, 32),
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            DropdownButtonFormField<int?>(
+                              value: _selectedSupplierId,
+                              decoration: const InputDecoration(
+                                labelText: 'Chọn nhà cung cấp',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.local_shipping),
+                              ),
+                              hint: const Text('-- Không chọn --'),
+                              items: _suppliers.map((supplier) {
+                                return DropdownMenuItem<int>(
+                                  value: supplier['id'],
+                                  child: Text(supplier['name']),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                setState(() => _selectedSupplierId = value);
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 16),
 

@@ -852,14 +852,49 @@ class _AdminProductsTabState extends State<AdminProductsTab> {
   }
 
   Future<void> _editProduct(Map<String, dynamic> product) async {
-    final result = await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => AdminProductFormScreen(product: product),
-      ),
-    );
+    // Load full product details before editing
+    setState(() => _isLoading = true);
+    
+    try {
+      // Get full product details from API
+      final fullProduct = await ApiService.getBook(product['id']);
+      
+      if (fullProduct == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Không thể tải thông tin sản phẩm'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+      
+      // Navigate to edit form with full product data
+      final result = await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => AdminProductFormScreen(product: fullProduct),
+        ),
+      );
 
-    if (result == true) {
-      _loadProducts(); // Reload if product was updated
+      if (result == true) {
+        _loadProducts(); // Reload if product was updated
+      }
+    } catch (e) {
+      print('Error loading product details: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 

@@ -111,7 +111,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Banner carousel
+                  // Banner carousel - show featured products
                   if (productProvider.featuredProducts.isNotEmpty)
                     CarouselSlider(
                       options: CarouselOptions(
@@ -121,57 +121,66 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
                         viewportFraction: 1.0,
                       ),
                       items: productProvider.featuredProducts
-                          .take(5)
                           .map((product) {
-                        // Normalize image URL to fix backslash issue
+                        // Build full image URL from relative path
                         final normalizedImageUrl =
-                            ImageUtils.normalizeImageUrl(product.image);
+                            ImageUtils.buildImageUrl(product.image);
 
-                        return Container(
-                          width: double.infinity,
-                          margin: const EdgeInsets.symmetric(horizontal: 8),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            image: normalizedImageUrl != null
-                                ? DecorationImage(
-                                    image: NetworkImage(normalizedImageUrl),
-                                    fit: BoxFit.cover,
+                        return GestureDetector(
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    ProductDetailApiScreen(bookId: product.id),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.symmetric(horizontal: 8),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              image: normalizedImageUrl != null
+                                  ? DecorationImage(
+                                      image: NetworkImage(normalizedImageUrl),
+                                      fit: BoxFit.cover,
+                                    )
+                                  : null,
+                              color: Colors.grey.shade200,
+                            ),
+                            child: normalizedImageUrl == null
+                                ? const Center(
+                                    child: Icon(Icons.book,
+                                        size: 50, color: Colors.grey),
                                   )
-                                : null,
-                            color: Colors.grey.shade200,
-                          ),
-                          child: normalizedImageUrl == null
-                              ? const Center(
-                                  child: Icon(Icons.book,
-                                      size: 50, color: Colors.grey),
-                                )
-                              : Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(8),
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                      colors: [
-                                        Colors.transparent,
-                                        Colors.black.withOpacity(0.7),
-                                      ],
+                                : Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(8),
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                        colors: [
+                                          Colors.transparent,
+                                          Colors.black.withOpacity(0.7),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                  child: Align(
-                                    alignment: Alignment.bottomLeft,
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(16),
-                                      child: Text(
-                                        product.name ?? '',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
+                                    child: Align(
+                                      alignment: Alignment.bottomLeft,
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(16),
+                                        child: Text(
+                                          product.name ?? '',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                         ),
                                       ),
                                     ),
                                   ),
-                                ),
+                          ),
                         );
                       }).toList(),
                     ),
@@ -260,6 +269,45 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
                     ProductGridWidget(
                       products:
                           productProvider.featuredProducts.take(6).toList(),
+                      onProductTap: (product) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                ProductDetailApiScreen(bookId: product.id),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+
+                  // Bestseller products
+                  if (productProvider.bestsellerProducts.isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Sách bán chạy',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              // TODO: Navigate to all bestsellers
+                            },
+                            child: const Text('Xem tất cả'),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    ProductGridWidget(
+                      products:
+                          productProvider.bestsellerProducts.take(6).toList(),
                       onProductTap: (product) {
                         Navigator.of(context).push(
                           MaterialPageRoute(

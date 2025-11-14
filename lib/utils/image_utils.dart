@@ -1,11 +1,15 @@
+import '../constants/api_constants.dart';
+
 /// Utilities for handling image URLs from API
 class ImageUtils {
-  /// Normalize image URL by fixing backslashes and ensuring proper format
+  /// Build full image URL from relative path or absolute URL
   ///
-  /// Fixes:
+  /// Handles:
+  /// - Relative paths: /uploads/books/xxx.jpg → baseUrl + path
+  /// - Absolute URLs: https://... → return as is
+  /// - Legacy absolute URLs with different port → return as is (for backward compatibility)
   /// - Windows backslash (\) to forward slash (/)
-  /// - Ensures proper URL format
-  static String? normalizeImageUrl(String? url) {
+  static String? buildImageUrl(String? url) {
     if (url == null || url.isEmpty) {
       return null;
     }
@@ -13,14 +17,24 @@ class ImageUtils {
     // Fix backslash issue (Windows path)
     String normalizedUrl = url.replaceAll('\\', '/');
 
-    // Ensure URL starts with http:// or https://
-    if (!normalizedUrl.startsWith('http://') &&
-        !normalizedUrl.startsWith('https://')) {
-      // If it's a relative path, you might want to add base URL here
-      return null;
+    // If already absolute URL, return as is
+    if (normalizedUrl.startsWith('http://') || normalizedUrl.startsWith('https://')) {
+      return normalizedUrl;
     }
 
-    return normalizedUrl;
+    // If relative path, build full URL with current baseUrl
+    // Remove leading slash if exists to avoid double slash
+    String relativePath = normalizedUrl.startsWith('/')
+        ? normalizedUrl.substring(1)
+        : normalizedUrl;
+
+    return '${ApiConstants.baseUrl}/$relativePath';
+  }
+
+  /// Normalize image URL (deprecated, use buildImageUrl instead)
+  @Deprecated('Use buildImageUrl instead')
+  static String? normalizeImageUrl(String? url) {
+    return buildImageUrl(url);
   }
 
   /// Get primary image URL from images array
@@ -32,13 +46,13 @@ class ImageUtils {
     // Try to find primary image first
     for (var image in images) {
       if (image is Map && image['is_primary'] == true) {
-        return normalizeImageUrl(image['url']);
+        return buildImageUrl(image['url']);
       }
     }
 
     // If no primary image, return first image
     if (images[0] is Map && images[0]['url'] != null) {
-      return normalizeImageUrl(images[0]['url']);
+      return buildImageUrl(images[0]['url']);
     }
 
     return null;
@@ -53,9 +67,9 @@ class ImageUtils {
     List<String> urls = [];
     for (var image in images) {
       if (image is Map && image['url'] != null) {
-        String? normalizedUrl = normalizeImageUrl(image['url']);
-        if (normalizedUrl != null) {
-          urls.add(normalizedUrl);
+        String? fullUrl = buildImageUrl(image['url']);
+        if (fullUrl != null) {
+          urls.add(fullUrl);
         }
       }
     }
@@ -63,13 +77,3 @@ class ImageUtils {
     return urls;
   }
 }
-
-
-
-
-
-
-
-
-
-

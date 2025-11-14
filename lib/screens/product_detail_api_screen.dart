@@ -25,6 +25,8 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
   bool _isLoading = true;
   bool _showFullDescription = false;
   bool _showAllReviews = false;
+  final ScrollController _scrollController = ScrollController();
+  double _scrollOffset = 0.0;
 
   Map<String, dynamic>? _bookData;
   List<dynamic>? _reviewsData;
@@ -58,6 +60,20 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
   void initState() {
     super.initState();
     _loadBookData();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    setState(() {
+      _scrollOffset = _scrollController.offset;
+    });
   }
 
   Future<void> _loadBookData({bool forceReload = false}) async {
@@ -163,14 +179,12 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
 
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Chi tiết sản phẩm')),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_bookData == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Chi tiết sản phẩm')),
         body: const Center(child: Text('Không thể tải thông tin sản phẩm')),
       );
     }
@@ -187,205 +201,274 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
     final ratingCount = _bookData!['rating_count'] ?? 0;
     final description = _bookData!['description'] ?? '';
 
+    // Calculate opacity for image overlay based on scroll
+    final maxScroll = 300.0; // Height of image
+    final opacity = (_scrollOffset / maxScroll).clamp(0.0, 0.7);
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Chi tiết sản phẩm'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () => _loadBookData(forceReload: true),
-            tooltip: 'Làm mới',
-          ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: () => _loadBookData(forceReload: true),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Image Carousel with Indicator
-              _buildImageCarousel(stockQuantity),
-
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Product name
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Rating and Sold Quantity
-                    Row(
+      body: Stack(
+        children: [
+          // Main scrollable content
+          RefreshIndicator(
+            onRefresh: () => _loadBookData(forceReload: true),
+            child: CustomScrollView(
+              controller: _scrollController,
+              slivers: [
+                // Image header with parallax effect
+                SliverAppBar(
+                  expandedHeight: MediaQuery.of(context).size.height * 0.5,
+                  pinned: false,
+                  backgroundColor: Colors.transparent,
+                  automaticallyImplyLeading: false,
+                  flexibleSpace: FlexibleSpaceBar(
+                    background: Stack(
+                      fit: StackFit.expand,
                       children: [
-                        RatingBarIndicator(
-                          rating: ratingAverage,
-                          itemBuilder: (context, index) => const Icon(
-                            Icons.star,
-                            color: Colors.amber,
+                        _buildImageCarousel(stockQuantity),
+                        // Gradient overlay that increases with scroll
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.black.withOpacity(opacity * 0.3),
+                                Colors.black.withOpacity(opacity * 0.5),
+                              ],
+                            ),
                           ),
-                          itemCount: 5,
-                          itemSize: 20,
-                          direction: Axis.horizontal,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '$ratingAverage ($ratingCount đánh giá)',
-                          style: const TextStyle(color: Colors.grey),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Đã bán: $soldQuantity',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey.shade600,
+                  ),
+                ),
+                
+                // Content
+                SliverToBoxAdapter(
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(24),
+                        topRight: Radius.circular(24),
                       ),
                     ),
-                    const SizedBox(height: 16),
-
-                    // Book Details (Authors, Cover Type, Dimensions)
-                    _buildBookDetails(),
-                    const SizedBox(height: 16),
-
-                    // Price
-                    Row(
-                      children: [
-                        Text(
-                          '${price.toStringAsFixed(0)}k',
-                          style: const TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue,
-                          ),
-                        ),
-                        if (discountPercentage > 0 &&
-                            originalPrice != null) ...[
-                          const SizedBox(width: 12),
-                          Text(
-                            '${originalPrice.toStringAsFixed(0)}k',
-                            style: const TextStyle(
-                              decoration: TextDecoration.lineThrough,
-                              color: Colors.grey,
-                              fontSize: 18,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              '-${discountPercentage.toInt()}%',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Description with show more
-                    _buildDescription(description),
-                    const SizedBox(height: 24),
-
-                    // Reviews Section
-                    _buildReviewsSection(),
-                    const SizedBox(height: 24),
-
-                    // Quantity selector
-                    RepaintBoundary(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Số lượng',
-                            style: TextStyle(
-                              fontSize: 18,
+                          // Product name
+                          Text(
+                            title,
+                            style: const TextStyle(
+                              fontSize: 24,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           const SizedBox(height: 8),
+
+                          // Rating and Sold Quantity
                           Row(
                             children: [
-                              IconButton(
-                                onPressed: stockQuantity > 0 && _quantity > 1
-                                    ? () => setState(() => _quantity--)
-                                    : null,
-                                icon: const Icon(Icons.remove),
-                                style: IconButton.styleFrom(
-                                  backgroundColor: Colors.grey.shade200,
+                              RatingBarIndicator(
+                                rating: ratingAverage,
+                                itemBuilder: (context, index) => const Icon(
+                                  Icons.star,
+                                  color: Colors.amber,
                                 ),
+                                itemCount: 5,
+                                itemSize: 20,
+                                direction: Axis.horizontal,
                               ),
-                              Container(
-                                width: 60,
-                                padding: const EdgeInsets.symmetric(vertical: 8),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.grey),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  '$_quantity',
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(fontSize: 16),
-                                ),
-                              ),
-                              IconButton(
-                                onPressed: stockQuantity > 0
-                                    ? () => setState(() => _quantity++)
-                                    : null,
-                                icon: const Icon(Icons.add),
-                                style: IconButton.styleFrom(
-                                  backgroundColor: Colors.grey.shade200,
-                                ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '$ratingAverage ($ratingCount đánh giá)',
+                                style: const TextStyle(color: Colors.grey),
                               ),
                             ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Đã bán: $soldQuantity',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Book Details (Authors, Cover Type, Dimensions)
+                          _buildBookDetails(),
+                          const SizedBox(height: 16),
+
+                          // Price
+                          Row(
+                            children: [
+                              Text(
+                                '${price.toStringAsFixed(0)}k',
+                                style: const TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue,
+                                ),
+                              ),
+                              if (discountPercentage > 0 &&
+                                  originalPrice != null) ...[
+                                const SizedBox(width: 12),
+                                Text(
+                                  '${originalPrice.toStringAsFixed(0)}k',
+                                  style: const TextStyle(
+                                    decoration: TextDecoration.lineThrough,
+                                    color: Colors.grey,
+                                    fontSize: 18,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    '-${discountPercentage.toInt()}%',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Description with show more
+                          _buildDescription(description),
+                          const SizedBox(height: 24),
+
+                          // Reviews Section
+                          _buildReviewsSection(),
+                          const SizedBox(height: 24),
+
+                          // Quantity selector
+                          RepaintBoundary(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Số lượng',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    IconButton(
+                                      onPressed: stockQuantity > 0 && _quantity > 1
+                                          ? () => setState(() => _quantity--)
+                                          : null,
+                                      icon: const Icon(Icons.remove),
+                                      style: IconButton.styleFrom(
+                                        backgroundColor: Colors.grey.shade200,
+                                      ),
+                                    ),
+                                    Container(
+                                      width: 60,
+                                      padding: const EdgeInsets.symmetric(vertical: 8),
+                                      decoration: BoxDecoration(
+                                        border: Border.all(color: Colors.grey),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        '$_quantity',
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(fontSize: 16),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      onPressed: stockQuantity > 0
+                                          ? () => setState(() => _quantity++)
+                                          : null,
+                                      icon: const Icon(Icons.add),
+                                      style: IconButton.styleFrom(
+                                        backgroundColor: Colors.grey.shade200,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Add to cart button
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed:
+                                  stockQuantity > 0 ? () => _addToCart() : null,
+                              icon: const Icon(Icons.shopping_cart),
+                              label: Text(
+                                stockQuantity > 0 ? 'Thêm vào giỏ hàng' : 'Hết hàng',
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                backgroundColor:
+                                    stockQuantity > 0 ? null : Colors.grey,
+                              ),
+                            ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 24),
-
-                    // Add to cart button
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed:
-                            stockQuantity > 0 ? () => _addToCart() : null,
-                        icon: const Icon(Icons.shopping_cart),
-                        label: Text(
-                          stockQuantity > 0 ? 'Thêm vào giỏ hàng' : 'Hết hàng',
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          backgroundColor:
-                              stockQuantity > 0 ? null : Colors.grey,
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+          
+          // Floating action buttons (Back and Reload)
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 8,
+            left: 8,
+            right: 8,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Back button
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.5),
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+                // Reload button
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.5),
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.refresh, color: Colors.white),
+                    onPressed: () => _loadBookData(forceReload: true),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -393,7 +476,7 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
   Widget _buildImageCarousel(int stockQuantity) {
     if (_imageUrls.isEmpty) {
       return Container(
-        height: 300,
+        height: double.infinity,
         color: Colors.grey.shade200,
         child: const Center(
           child: Icon(Icons.book, size: 100, color: Colors.grey),
@@ -405,7 +488,7 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
       children: [
         CarouselSlider(
           options: CarouselOptions(
-            height: 300,
+            height: double.infinity,
             viewportFraction: 1.0,
             enableInfiniteScroll: _imageUrls.length > 1,
             onPageChanged: (index, reason) {
@@ -415,7 +498,7 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
           items: _imageUrls.map((url) {
             return CachedNetworkImage(
               imageUrl: url,
-              height: 300,
+              height: double.infinity,
               width: double.infinity,
               fit: BoxFit.cover,
               memCacheWidth: 800,
@@ -956,7 +1039,7 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
       if (userIdStr == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(' Vui lòng đăng nhập để thêm vào giỏ hàng'),
+            content: Text('⚠️ Vui lòng đăng nhập để thêm vào giỏ hàng'),
             backgroundColor: Colors.red,
             duration: Duration(seconds: 2),
           ),
@@ -968,7 +1051,7 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
       if (userId == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(' Lỗi định dạng user ID'),
+            content: Text('⚠️ Lỗi định dạng user ID'),
             backgroundColor: Colors.red,
             duration: Duration(seconds: 2),
           ),
@@ -996,7 +1079,7 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
       if (result != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(' Đã thêm vào giỏ hàng!'),
+            content: Text('✅ Đã thêm vào giỏ hàng!'),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 2),
           ),
@@ -1007,18 +1090,18 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(' Không thể thêm vào giỏ hàng'),
+            content: Text('❌ Không thể thêm vào giỏ hàng'),
             backgroundColor: Colors.red,
             duration: Duration(seconds: 2),
           ),
         );
       }
     } catch (e) {
-      print(' Error adding to cart: $e');
+      print('❌ Error adding to cart: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(' Đã xảy ra lỗi'),
+            content: Text('❌ Đã xảy ra lỗi'),
             backgroundColor: Colors.red,
             duration: Duration(seconds: 2),
           ),

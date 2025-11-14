@@ -8,6 +8,7 @@ import '../utils/image_utils.dart';
 class ProductApiProvider with foundation.ChangeNotifier {
   List<Product> _products = [];
   List<Product> _featuredProducts = [];
+  List<Product> _bestsellerProducts = [];
   List<app_models.Category> _categories = [];
   bool _isLoading = false;
   String? _errorMessage;
@@ -16,6 +17,7 @@ class ProductApiProvider with foundation.ChangeNotifier {
 
   List<Product> get products => _products;
   List<Product> get featuredProducts => _featuredProducts;
+  List<Product> get bestsellerProducts => _bestsellerProducts;
   List<app_models.Category> get categories => _categories;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
@@ -52,9 +54,13 @@ class ProductApiProvider with foundation.ChangeNotifier {
       // Filter featured products
       _featuredProducts = _products.where((p) => p.isFeatured).toList();
 
+      // Filter bestseller products and sort by sold quantity
+      _bestsellerProducts = _products.where((p) => p.isBestseller).toList()
+        ..sort((a, b) => (b.soldQuantity ?? 0).compareTo(a.soldQuantity ?? 0));
+
       _productsLoaded = true;
       print(
-          'Loaded ${_products.length} products, ${_featuredProducts.length} featured');
+          'Loaded ${_products.length} products, ${_featuredProducts.length} featured, ${_bestsellerProducts.length} bestsellers');
     } catch (e) {
       _setError('Lỗi tải sản phẩm: ${e.toString()}');
       print('Error loading products: $e');
@@ -99,9 +105,12 @@ class ProductApiProvider with foundation.ChangeNotifier {
         categoryName: categoryName ?? '',
         sale: ((bookData['discount_percentage'] ?? 0) as num).toInt(),
         isFeatured: bookData['is_featured'] ?? false,
+        isBestseller: bookData['is_bestseller'] ?? false,
+        soldQuantity: bookData['sold_quantity'],
         ratingAverage: ((bookData['rating_average'] ?? 0.0) as num).toDouble(),
         ratingCount: bookData['rating_count'] ?? 0,
         count: bookData['stock_quantity'] ?? 0,
+        images: bookData['images'],
       );
     } catch (e) {
       print('Error mapping book data: $e');

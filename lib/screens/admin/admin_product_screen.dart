@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../providers/product_provider.dart';
+import '../../providers/product_provider_new.dart' as api_providers;
 import '../../models/product.dart';
 import 'admin_add_product_screen.dart';
+import '../../constants/api_constants.dart';
+import 'package:http/http.dart' as http;
 
 class AdminProductScreen extends StatefulWidget {
   const AdminProductScreen({super.key});
@@ -19,7 +21,7 @@ class _AdminProductScreenState extends State<AdminProductScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ProductProvider>().loadProducts();
+      context.read<api_providers.ProductApiProvider>().loadProducts();
     });
   }
 
@@ -78,7 +80,7 @@ class _AdminProductScreenState extends State<AdminProductScreen> {
             ),
           ),
           Expanded(
-            child: Consumer<ProductProvider>(
+            child: Consumer<api_providers.ProductApiProvider>(
               builder: (context, productProvider, child) {
                 if (productProvider.isLoading) {
                   return const Center(child: CircularProgressIndicator());
@@ -154,6 +156,22 @@ class _AdminProductScreenState extends State<AdminProductScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
+                              icon: Icon(
+                                product.isFeatured == true ? Icons.star : Icons.star_border,
+                                color: product.isFeatured == true ? Colors.amber : Colors.grey,
+                              ),
+                              onPressed: () => _toggleFeatured(product),
+                              tooltip: 'Nổi bật & Carousel',
+                            ),
+                            IconButton(
+                              icon: Icon(
+                                product.isBestseller == true ? Icons.trending_up : Icons.trending_up_outlined,
+                                color: product.isBestseller == true ? Colors.green : Colors.grey,
+                              ),
+                              onPressed: () => _toggleBestseller(product),
+                              tooltip: 'Bestseller',
+                            ),
+                            IconButton(
                               icon: const Icon(Icons.edit, color: Colors.blue),
                               onPressed: () {
                                 Navigator.push(
@@ -195,6 +213,50 @@ class _AdminProductScreenState extends State<AdminProductScreen> {
     );
   }
 
+  Future<void> _toggleFeatured(Product product) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('${ApiConstants.baseUrl}/api/admin/books/${product.id}/toggle-featured'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200 && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Cập nhật trạng thái nổi bật thành công')),
+        );
+        context.read<api_providers.ProductApiProvider>().loadProducts(forceReload: true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _toggleBestseller(Product product) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('${ApiConstants.baseUrl}/api/admin/books/${product.id}/toggle-bestseller'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200 && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Cập nhật trạng thái bestseller thành công')),
+        );
+        context.read<api_providers.ProductApiProvider>().loadProducts(forceReload: true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi: $e')),
+        );
+      }
+    }
+  }
+
   void _showDeleteDialog(Product product) {
     showDialog(
       context: context,
@@ -209,7 +271,7 @@ class _AdminProductScreenState extends State<AdminProductScreen> {
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              context.read<ProductProvider>().deleteProduct(product.id);
+              context.read<api_providers.ProductApiProvider>().deleteProduct(product.id);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Xóa sản phẩm thành công')),
               );

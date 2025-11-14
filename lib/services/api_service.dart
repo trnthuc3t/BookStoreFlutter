@@ -436,6 +436,110 @@ class ApiService {
     }
   }
 
+  /// Get all publishers
+  static Future<List<dynamic>> getPublishers() async {
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/api/publishers'),
+        headers: await _getHeaders(),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['publishers'] ?? [];
+      }
+      return [];
+    } catch (e) {
+      print('❌ Get publishers error: $e');
+      return [];
+    }
+  }
+
+  /// Create new publisher
+  static Future<Map<String, dynamic>?> createPublisher({
+    required String name,
+    String? contactEmail,
+    String? contactPhone,
+  }) async {
+    try {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('${ApiConstants.baseUrl}/api/publishers'),
+      );
+      
+      request.fields['name'] = name;
+      if (contactEmail != null) request.fields['contact_email'] = contactEmail;
+      if (contactPhone != null) request.fields['contact_phone'] = contactPhone;
+      
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print('✅ Created publisher: $name');
+        return data;
+      }
+      return null;
+    } catch (e) {
+      print('❌ Create publisher error: $e');
+      return null;
+    }
+  }
+
+  /// Get all suppliers
+  static Future<List<dynamic>> getSuppliers() async {
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/api/suppliers'),
+        headers: await _getHeaders(),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['suppliers'] ?? [];
+      }
+      return [];
+    } catch (e) {
+      print('❌ Get suppliers error: $e');
+      return [];
+    }
+  }
+
+  /// Create new supplier
+  static Future<Map<String, dynamic>?> createSupplier({
+    required String name,
+    String? contactPerson,
+    String? email,
+    String? phone,
+    String? address,
+  }) async {
+    try {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('${ApiConstants.baseUrl}/api/suppliers'),
+      );
+      
+      request.fields['name'] = name;
+      if (contactPerson != null) request.fields['contact_person'] = contactPerson;
+      if (email != null) request.fields['email'] = email;
+      if (phone != null) request.fields['phone'] = phone;
+      if (address != null) request.fields['address'] = address;
+      
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print('✅ Created supplier: $name');
+        return data;
+      }
+      return null;
+    } catch (e) {
+      print('❌ Create supplier error: $e');
+      return null;
+    }
+  }
+
   // Cart
   static Future<Map<String, dynamic>?> getCart(int userId) async {
     try {
@@ -1072,6 +1176,18 @@ class ApiService {
     bool? isActive,
     bool? isFeatured,
     bool? isBestseller,
+    // Additional fields
+    int? categoryId,
+    int? publisherId,
+    int? supplierId,
+    String? language,
+    String? coverType,
+    int? pages,
+    int? publicationYear,
+    double? length,
+    double? width,
+    double? thickness,
+    int? weight,
   }) async {
     try {
       print('📝 Updating book #$bookId...');
@@ -1090,13 +1206,56 @@ class ApiService {
           if (isActive != null) 'is_active': isActive,
           if (isFeatured != null) 'is_featured': isFeatured,
           if (isBestseller != null) 'is_bestseller': isBestseller,
+          // Additional fields
+          if (categoryId != null) 'category_id': categoryId,
+          if (publisherId != null) 'publisher_id': publisherId,
+          if (supplierId != null) 'supplier_id': supplierId,
+          if (language != null) 'language': language,
+          if (coverType != null) 'cover_type': coverType,
+          if (pages != null) 'pages': pages,
+          if (publicationYear != null) 'publication_year': publicationYear,
+          if (length != null) 'length': length,
+          if (width != null) 'width': width,
+          if (thickness != null) 'thickness': thickness,
+          if (weight != null) 'weight': weight,
         }),
       );
 
       print('📝 Update book response: ${response.statusCode}');
+      print('📝 Update book body: ${response.body}');
       return response.statusCode == 200;
     } catch (e) {
       print('❌ Update book error: $e');
+      return false;
+    }
+  }
+
+  /// Update book authors (admin)
+  static Future<bool> updateBookAuthors({
+    required int bookId,
+    required List<int> authorIds,
+  }) async {
+    try {
+      print('👤 Updating authors for book #$bookId: $authorIds');
+      final response = await http.put(
+        Uri.parse('${ApiConstants.baseUrl}/api/books/$bookId/authors'),
+        headers: await _getHeaders(),
+        body: jsonEncode(authorIds),
+      );
+
+      print('👤 Update authors response: ${response.statusCode}');
+      print('👤 Update authors body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        print('✅ Authors updated successfully');
+        return true;
+      } else {
+        print('❌ Update authors error: ${response.statusCode} - ${response.body}');
+        return false;
+      }
+    } catch (e, stackTrace) {
+      print('❌ Update book authors error: $e');
+      print('Stack trace: $stackTrace');
       return false;
     }
   }
@@ -1161,6 +1320,8 @@ class ApiService {
     int? pages,
     int? publicationYear,
     int? categoryId,
+    int? publisherId,
+    int? supplierId,
     String? language,
     String? coverType,
     double? length,
@@ -1196,6 +1357,10 @@ class ApiService {
         request.fields['publication_year'] = publicationYear.toString();
       if (categoryId != null)
         request.fields['category_id'] = categoryId.toString();
+      if (publisherId != null)
+        request.fields['publisher_id'] = publisherId.toString();
+      if (supplierId != null)
+        request.fields['supplier_id'] = supplierId.toString();
       request.fields['language'] = language ?? 'Vietnamese';
       request.fields['cover_type'] = coverType ?? 'paperback';
       if (length != null) request.fields['length'] = length.toString();

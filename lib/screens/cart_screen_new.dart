@@ -9,6 +9,7 @@ import 'payment_method_screen.dart';
 import 'voucher_screen.dart';
 import 'payment_screen.dart';
 import '../services/api_service.dart';
+import '../utils/image_utils.dart';
 
 class CartScreenNew extends StatefulWidget {
   const CartScreenNew({Key? key}) : super(key: key);
@@ -189,7 +190,7 @@ class _CartScreenNewState extends State<CartScreenNew> {
     final quantity = item['quantity'] ?? 1;
     final subtotal = price * quantity;
     // API returns 'book_image' not 'book_image_url'
-    final imageUrl = item['book_image'] ?? item['book_image_url'];
+    final imageUrl = ImageUtils.buildImageUrl(item['book_image'] ?? item['book_image_url']);
     final itemId = item['id'] as int;
     final isSelected = _selectedItems.contains(itemId);
 

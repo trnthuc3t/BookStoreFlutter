@@ -28,6 +28,9 @@ class Product {
   String? categoryName;
   int sale;
   bool isFeatured;
+  bool isBestseller;
+  int? soldQuantity;
+  List<dynamic>? images;
   String? info;
   Map<String, Rating>? rating;
   double ratingAverage; // From API
@@ -47,6 +50,9 @@ class Product {
     this.categoryName,
     this.sale = 0,
     this.isFeatured = false,
+    this.isBestseller = false,
+    this.soldQuantity,
+    this.images,
     this.info,
     this.rating,
     this.ratingAverage = 0.0,
@@ -109,7 +115,10 @@ class Product {
       categoryId: json['category_id'] ?? 0,
       categoryName: json['category_name'],
       sale: json['sale'] ?? 0,
-      isFeatured: json['isFeatured'] ?? false,
+      isFeatured: json['isFeatured'] ?? json['is_featured'] ?? false,
+      isBestseller: json['isBestseller'] ?? json['is_bestseller'] ?? false,
+      soldQuantity: json['sold_quantity'] ?? json['soldQuantity'],
+      images: json['images'],
       info: json['info'],
       rating: ratingMap,
       ratingAverage: (json['rating_average'] ?? 0.0).toDouble(),
@@ -140,6 +149,9 @@ class Product {
       'category_name': categoryName,
       'sale': sale,
       'isFeatured': isFeatured,
+      'isBestseller': isBestseller,
+      'sold_quantity': soldQuantity,
+      'images': images,
       'info': info,
       'rating': ratingJson,
       'rating_average': ratingAverage,
@@ -161,6 +173,9 @@ class Product {
     String? categoryName,
     int? sale,
     bool? isFeatured,
+    bool? isBestseller,
+    int? soldQuantity,
+    List<dynamic>? images,
     String? info,
     Map<String, Rating>? rating,
     double? ratingAverage,
@@ -180,6 +195,9 @@ class Product {
       categoryName: categoryName ?? this.categoryName,
       sale: sale ?? this.sale,
       isFeatured: isFeatured ?? this.isFeatured,
+      isBestseller: isBestseller ?? this.isBestseller,
+      soldQuantity: soldQuantity ?? this.soldQuantity,
+      images: images ?? this.images,
       info: info ?? this.info,
       rating: rating ?? this.rating,
       ratingAverage: ratingAverage ?? this.ratingAverage,
