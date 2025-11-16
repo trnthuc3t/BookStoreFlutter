@@ -3,6 +3,7 @@ import '../models/product.dart';
 import '../models/category.dart' as app_models;
 import '../services/api_service.dart';
 import '../utils/image_utils.dart';
+import '../utils/cache_manager.dart';
 
 // Rename to avoid conflict with product_provider.dart
 class ProductApiProvider with foundation.ChangeNotifier {
@@ -32,7 +33,7 @@ class ProductApiProvider with foundation.ChangeNotifier {
   }) async {
     // Return cached data if already loaded and not forcing reload
     if (_productsLoaded && !forceReload && _products.isNotEmpty) {
-      print('Using cached products data');
+      print('✅ Using cached products data');
       return;
     }
 
@@ -40,6 +41,18 @@ class ProductApiProvider with foundation.ChangeNotifier {
     _clearError();
 
     try {
+      // Try to load featured books from cache first
+      if (!forceReload && featuredOnly) {
+        final cachedFeatured = await CacheManager.getCachedFeaturedBooks();
+        if (cachedFeatured != null && cachedFeatured.isNotEmpty) {
+          print('✅ Using cached featured books (${cachedFeatured.length} items)');
+          _featuredProducts = cachedFeatured.map((item) => _mapBookToProduct(item)).toList();
+          _productsLoaded = true;
+          _setLoading(false);
+          return;
+        }
+      }
+
       final data = await ApiService.getProducts(
         skip: skip,
         limit: limit,
@@ -54,16 +67,23 @@ class ProductApiProvider with foundation.ChangeNotifier {
       // Filter featured products
       _featuredProducts = _products.where((p) => p.isFeatured).toList();
 
+      // Cache featured books for faster loading next time
+      if (_featuredProducts.isNotEmpty) {
+        final featuredData = data.where((item) => item['is_featured'] == true).toList();
+        await CacheManager.cacheFeaturedBooks(featuredData);
+        print('💾 Cached ${_featuredProducts.length} featured books');
+      }
+
       // Filter bestseller products and sort by sold quantity
       _bestsellerProducts = _products.where((p) => p.isBestseller).toList()
         ..sort((a, b) => (b.soldQuantity ?? 0).compareTo(a.soldQuantity ?? 0));
 
       _productsLoaded = true;
       print(
-          'Loaded ${_products.length} products, ${_featuredProducts.length} featured, ${_bestsellerProducts.length} bestsellers');
+          '✅ Loaded ${_products.length} products, ${_featuredProducts.length} featured, ${_bestsellerProducts.length} bestsellers');
     } catch (e) {
       _setError('Lỗi tải sản phẩm: ${e.toString()}');
-      print('Error loading products: $e');
+      print('❌ Error loading products: $e');
     } finally {
       _setLoading(false);
     }

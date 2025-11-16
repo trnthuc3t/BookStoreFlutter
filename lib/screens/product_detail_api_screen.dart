@@ -202,8 +202,8 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
     final description = _bookData!['description'] ?? '';
 
     // Calculate opacity for image overlay based on scroll
-    final maxScroll = 300.0; // Height of image
-    final opacity = (_scrollOffset / maxScroll).clamp(0.0, 0.7);
+    final imageHeight = MediaQuery.of(context).size.height * 0.5;
+    final opacity = (_scrollOffset / imageHeight).clamp(0.0, 0.7);
 
     return Scaffold(
       body: Stack(
@@ -226,15 +226,17 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
                       children: [
                         _buildImageCarousel(stockQuantity),
                         // Gradient overlay that increases with scroll
-                        Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.black.withOpacity(opacity * 0.3),
-                                Colors.black.withOpacity(opacity * 0.5),
-                              ],
+                        IgnorePointer(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.black.withOpacity(opacity * 0.3),
+                                  Colors.black.withOpacity(opacity * 0.5),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -290,7 +292,7 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Đã bán: $soldQuantity',
+                            'Đã bán: ${soldQuantity.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}',
                             style: TextStyle(
                               fontSize: 14,
                               color: Colors.grey.shade600,
@@ -485,38 +487,68 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
     }
 
     return Stack(
+      fit: StackFit.expand,
       children: [
-        CarouselSlider(
-          options: CarouselOptions(
-            height: double.infinity,
-            viewportFraction: 1.0,
-            enableInfiniteScroll: _imageUrls.length > 1,
-            onPageChanged: (index, reason) {
-              setState(() => _currentImageIndex = index);
-            },
+        // Horizontal scrollable image gallery - one image at a time
+        Center(
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 0.5,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              physics: const PageScrollPhysics(),
+              itemCount: _imageUrls.length,
+              itemBuilder: (context, index) {
+                return Container(
+                  width: MediaQuery.of(context).size.width, // Full width - one image at a time
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  child: Center(
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() => _currentImageIndex = index);
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: CachedNetworkImage(
+                            imageUrl: _imageUrls[index],
+                            // Use contain to maintain aspect ratio and fit within bounds
+                            fit: BoxFit.contain,
+                            alignment: Alignment.center,
+                            // Reduced cache size by 40%
+                            memCacheWidth: 480, // 40% smaller (was 800)
+                            memCacheHeight: 360, // 40% smaller (was 600)
+                            maxWidthDiskCache: 720, // 40% smaller (was 1200)
+                            maxHeightDiskCache: 540, // 40% smaller (was 900)
+                            placeholder: (context, url) => Container(
+                              color: Colors.grey.shade200,
+                              child: const Center(
+                                child: CircularProgressIndicator(),
+                              ),
+                            ),
+                            errorWidget: (context, url, error) => Container(
+                              color: Colors.grey.shade200,
+                              child: const Icon(Icons.book, size: 100),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
-          items: _imageUrls.map((url) {
-            return CachedNetworkImage(
-              imageUrl: url,
-              height: double.infinity,
-              width: double.infinity,
-              fit: BoxFit.cover,
-              memCacheWidth: 800,
-              memCacheHeight: 600,
-              maxWidthDiskCache: 1200,
-              maxHeightDiskCache: 900,
-              placeholder: (context, url) => Container(
-                color: Colors.grey.shade200,
-                child: const Center(
-                  child: CircularProgressIndicator(),
-                ),
-              ),
-              errorWidget: (context, url, error) => Container(
-                color: Colors.grey.shade200,
-                child: const Icon(Icons.book, size: 100),
-              ),
-            );
-          }).toList(),
         ),
 
         // Image indicator

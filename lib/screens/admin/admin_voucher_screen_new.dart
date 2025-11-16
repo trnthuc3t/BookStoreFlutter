@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../../constants/api_constants.dart';
 import '../../theme/app_theme.dart';
+import '../../services/admin_api_service.dart';
 import 'admin_add_voucher_screen_new.dart';
 
 class AdminVoucherScreenNew extends StatefulWidget {
@@ -33,16 +34,21 @@ class _AdminVoucherScreenNewState extends State<AdminVoucherScreenNew> {
   Future<void> _loadVouchers() async {
     setState(() => _isLoading = true);
     try {
-      final response = await http.get(
-        Uri.parse('${ApiConstants.baseUrl}/api/admin/vouchers'),
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+      final result = await AdminApiService.getAdminVouchers();
+      
+      if (result['success'] == true) {
         setState(() {
-          _vouchers = List<Map<String, dynamic>>.from(data['vouchers'] ?? []);
+          _vouchers = List<Map<String, dynamic>>.from(result['vouchers'] ?? []);
         });
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['error'] ?? 'Lỗi tải voucher'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -89,21 +95,17 @@ class _AdminVoucherScreenNewState extends State<AdminVoucherScreenNew> {
     if (confirmed != true) return;
 
     try {
-      final response = await http.delete(
-        Uri.parse('${ApiConstants.baseUrl}/api/admin/vouchers/${voucher['id']}'),
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      if (mounted) {
-        if (response.statusCode == 200) {
+      final result = await AdminApiService.deleteVoucher(voucher['id']);
+      
+      if (result['success'] == true) {
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Xóa voucher thành công'), backgroundColor: Colors.green),
           );
           _loadVouchers();
-        } else {
-          final error = jsonDecode(response.body);
-          throw Exception(error['detail'] ?? 'Không thể xóa voucher');
         }
+      } else {
+        throw Exception(result['error'] ?? 'Không thể xóa voucher');
       }
     } catch (e) {
       if (mounted) {
@@ -117,14 +119,13 @@ class _AdminVoucherScreenNewState extends State<AdminVoucherScreenNew> {
   Future<void> _toggleActive(Map<String, dynamic> voucher) async {
     final newActive = !(voucher['is_active'] ?? true);
     try {
-      final response = await http.put(
-        Uri.parse('${ApiConstants.baseUrl}/api/admin/vouchers/${voucher['id']}'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'is_active': newActive}),
-      );
-
-      if (response.statusCode == 200) {
+      final voucherData = {...voucher, 'is_active': newActive};
+      final result = await AdminApiService.updateVoucher(voucher['id'], voucherData);
+      
+      if (result['success'] == true) {
         _loadVouchers();
+      } else {
+        throw Exception(result['error'] ?? 'Không thể cập nhật voucher');
       }
     } catch (e) {
       if (mounted) {

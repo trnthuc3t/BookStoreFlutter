@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import '../models/product.dart';
-import '../utils/image_utils.dart';
 
 class ProductGridWidget extends StatelessWidget {
   final List<Product> products;
@@ -21,7 +21,7 @@ class ProductGridWidget extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 0.63,
+        childAspectRatio: 0.7,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
       ),
@@ -41,53 +41,112 @@ class ProductGridWidget extends StatelessWidget {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
         ),
-        clipBehavior: Clip.antiAlias,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Phần ảnh
+            // Product image
             Expanded(
-              flex: 7,
+              flex: 3,
               child: Stack(
-                fit: StackFit.expand,
                 children: [
-                  CachedNetworkImage(
-                    imageUrl: ImageUtils.normalizeImageUrl(product.image ?? '') ?? '',
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => const Center(
-                      child: CircularProgressIndicator(),
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                      color: Colors.grey.shade100,
                     ),
-                    errorWidget: (context, url, error) => const Center(
-                      child: Icon(Icons.book, size: 50, color: Colors.grey),
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                      child: product.image != null
+                          ? Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: CachedNetworkImage(
+                                imageUrl: product.image!,
+                                fit: BoxFit.contain,
+                                placeholder: (context, url) => const Center(
+                                  child: CircularProgressIndicator(),
+                                ),
+                                errorWidget: (context, url, error) => const Center(
+                                  child: Icon(Icons.book, size: 50, color: Colors.grey),
+                                ),
+                              ),
+                            )
+                          : const Center(
+                              child: Icon(Icons.book, size: 50, color: Colors.grey),
+                            ),
                     ),
                   ),
-                  if (product.count <= 0)
-                    Container(
-                      color: Colors.black.withOpacity(0.6),
-                      child: const Center(
-                        child: Text(
-                          'HẾT HÀNG',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
+                  // Tags Nổi bật và Bán chạy
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (product.isFeatured)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            margin: const EdgeInsets.only(bottom: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.amber,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.star, size: 10, color: Colors.white),
+                                SizedBox(width: 2),
+                                Text(
+                                  'Nổi bật',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ),
+                        if (product.isBestseller)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.trending_up, size: 10, color: Colors.white),
+                                SizedBox(width: 2),
+                                Text(
+                                  'Bán chạy',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
                     ),
-                  if (product.isFeatured)
+                  ),
+                  // Sale badge
+                  if (product.sale > 0)
                     Positioned(
                       top: 8,
-                      left: 8,
+                      right: 8,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.orange,
-                          borderRadius: BorderRadius.circular(4),
+                        padding: const EdgeInsets.all(6),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
                         ),
-                        child: const Text(
-                          'Nổi bật',
-                          style: TextStyle(
+                        child: Text(
+                          '-${product.sale}%',
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
@@ -99,79 +158,75 @@ class ProductGridWidget extends StatelessWidget {
               ),
             ),
 
-            // Phần thông tin
+            // Product info
             Expanded(
-              flex: 4,
+              flex: 2,
               child: Padding(
                 padding: const EdgeInsets.all(8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Product name
                     Text(
                       product.name ?? '',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        height: 1.2,
+                        fontSize: 14,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 4),
+
+                    // Rating
                     Row(
                       children: [
-                        const Icon(Icons.star, color: Colors.amber, size: 12),
-                        const SizedBox(width: 2),
+                        RatingBarIndicator(
+                          rating: product.rate,
+                          itemBuilder: (context, index) => const Icon(
+                            Icons.star,
+                            color: Colors.amber,
+                          ),
+                          itemCount: 5,
+                          itemSize: 12,
+                          direction: Axis.horizontal,
+                        ),
+                        const SizedBox(width: 4),
                         Text(
-                          '${product.rate.toStringAsFixed(1)}',
+                          '(${product.ratingCount})',
                           style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 10,
+                            color: Colors.grey,
                           ),
                         ),
                       ],
                     ),
-                    const Spacer(),
+                    const SizedBox(height: 4),
+
+                    // Price
                     Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
                           '${(product.realPrice / 1000).toStringAsFixed(0)}k',
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             color: Colors.blue,
-                            fontSize: 13,
+                            fontSize: 14,
                           ),
                         ),
-                        const SizedBox(width: 4),
-                        if (product.sale > 0)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                            child: Text(
-                              '-${product.sale}%',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                              ),
+                        if (product.sale > 0) ...[
+                          const SizedBox(width: 4),
+                          Text(
+                            '${(product.price / 1000).toStringAsFixed(0)}k',
+                            style: const TextStyle(
+                              decoration: TextDecoration.lineThrough,
+                              color: Colors.grey,
+                              fontSize: 11,
                             ),
                           ),
+                        ],
                       ],
                     ),
-                    if (product.sale > 0 && product.price != product.realPrice)
-                      Text(
-                        '${(product.price / 1000).toStringAsFixed(0)}k',
-                        style: const TextStyle(
-                          decoration: TextDecoration.lineThrough,
-                          color: Colors.grey,
-                          fontSize: 10,
-                        ),
-                      ),
                   ],
                 ),
               ),

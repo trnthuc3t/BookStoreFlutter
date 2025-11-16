@@ -18,6 +18,8 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
   bool _isActive = true;
+  bool _isFeatured = false;
+  bool _isBestseller = false;
 
   // Controllers
   late TextEditingController _titleController;
@@ -81,6 +83,8 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
         text: product?['weight']?.toString() ?? '');
 
     _isActive = product?['is_active'] ?? true;
+    _isFeatured = product?['is_featured'] ?? false;
+    _isBestseller = product?['is_bestseller'] ?? false;
 
     // Load category - handle both direct id and nested object
     if (product?['category_id'] != null) {
@@ -576,7 +580,7 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
     final bookId = widget.product!['id'];
 
     // Step 1: Update book details with ALL fields
-    print('📝 Updating book with full details...');
+    print('Updating book with full details...');
     final success = await ApiService.updateBook(
       bookId: bookId,
       title: _titleController.text.trim(),
@@ -586,6 +590,8 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
       discountPercentage: double.tryParse(_discountPercentageController.text),
       stockQuantity: int.tryParse(_stockController.text),
       isActive: _isActive,
+      isFeatured: _isFeatured,
+      isBestseller: _isBestseller,
       // Additional fields
       categoryId: _selectedCategoryId,
       publisherId: _selectedPublisherId,
@@ -604,7 +610,7 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('❌ Cập nhật thất bại'),
+            content: Text('Cập nhật thất bại'),
             backgroundColor: Colors.red,
           ),
         );
@@ -680,16 +686,56 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
 
                     // Active/Inactive Toggle
                     Card(
-                      child: SwitchListTile(
-                        title: const Text('Kích hoạt sản phẩm'),
-                        subtitle: Text(_isActive
-                            ? 'Sản phẩm đang được bán'
-                            : 'Sản phẩm không được bán'),
-                        value: _isActive,
-                        activeColor: Colors.green,
-                        onChanged: (value) {
-                          setState(() => _isActive = value);
-                        },
+                      child: Column(
+                        children: [
+                          SwitchListTile(
+                            title: const Text('Kích hoạt sản phẩm'),
+                            subtitle: Text(_isActive
+                                ? 'Sản phẩm đang được bán'
+                                : 'Sản phẩm không được bán'),
+                            value: _isActive,
+                            activeColor: Colors.green,
+                            onChanged: (value) {
+                              setState(() => _isActive = value);
+                            },
+                          ),
+                          const Divider(height: 1),
+                          SwitchListTile(
+                            title: Row(
+                              children: const [
+                                Icon(Icons.star, color: Colors.orange, size: 20),
+                                SizedBox(width: 8),
+                                Text('Sách nổi bật'),
+                              ],
+                            ),
+                            subtitle: Text(_isFeatured
+                                ? 'Hiển thị trong carousel trang chủ'
+                                : 'Không hiển thị trong carousel'),
+                            value: _isFeatured,
+                            activeColor: Colors.orange,
+                            onChanged: (value) {
+                              setState(() => _isFeatured = value);
+                            },
+                          ),
+                          const Divider(height: 1),
+                          SwitchListTile(
+                            title: Row(
+                              children: const [
+                                Icon(Icons.trending_up, color: Colors.red, size: 20),
+                                SizedBox(width: 8),
+                                Text('Sách bán chạy'),
+                              ],
+                            ),
+                            subtitle: Text(_isBestseller
+                                ? 'Hiển thị trong danh sách bán chạy'
+                                : 'Không hiển thị trong danh sách bán chạy'),
+                            value: _isBestseller,
+                            activeColor: Colors.red,
+                            onChanged: (value) {
+                              setState(() => _isBestseller = value);
+                            },
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 16),

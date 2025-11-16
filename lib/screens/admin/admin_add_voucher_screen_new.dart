@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../../constants/api_constants.dart';
 import '../../theme/app_theme.dart';
+import '../../services/admin_api_service.dart';
 
 class AdminAddVoucherScreenNew extends StatefulWidget {
   final Map<String, dynamic>? voucher;
@@ -116,40 +117,37 @@ class _AdminAddVoucherScreenNewState extends State<AdminAddVoucherScreenNew> {
     setState(() => _isLoading = true);
 
     try {
-      final body = jsonEncode({
+      final voucherData = {
         'code': _codeController.text.trim().toUpperCase(),
         'name': _nameController.text.trim(),
-        'description': _descriptionController.text.trim().isEmpty 
-            ? null 
+        'description': _descriptionController.text.trim().isEmpty
+            ? null
             : _descriptionController.text.trim(),
         'discount_type': _discountType,
         'discount_value': double.parse(_discountValueController.text),
-        'min_order_amount': _minOrderController.text.isEmpty 
-            ? 0 
+        'min_order_amount': _minOrderController.text.isEmpty
+            ? 0
             : double.parse(_minOrderController.text),
-        'max_discount_amount': _maxDiscountController.text.isEmpty 
-            ? null 
+        'max_discount_amount': _maxDiscountController.text.isEmpty
+            ? null
             : double.parse(_maxDiscountController.text),
-        'usage_limit': _usageLimitController.text.isEmpty 
-            ? null 
+        'usage_limit': _usageLimitController.text.isEmpty
+            ? null
             : int.parse(_usageLimitController.text),
         'user_limit': int.parse(_userLimitController.text),
         'start_date': _startDate!.toIso8601String(),
         'end_date': _endDate!.toIso8601String(),
         'is_active': _isActive,
-      });
+      };
 
       final isEdit = widget.voucher != null;
-      final url = isEdit
-          ? '${ApiConstants.baseUrl}/api/admin/vouchers/${widget.voucher!['id']}'
-          : '${ApiConstants.baseUrl}/api/admin/vouchers';
-
-      final response = isEdit
-          ? await http.put(Uri.parse(url), headers: {'Content-Type': 'application/json'}, body: body)
-          : await http.post(Uri.parse(url), headers: {'Content-Type': 'application/json'}, body: body);
+      
+      final result = isEdit
+          ? await AdminApiService.updateVoucher(widget.voucher!['id'], voucherData)
+          : await AdminApiService.createVoucher(voucherData);
 
       if (mounted) {
-        if (response.statusCode == 200) {
+        if (result['success'] == true) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(isEdit ? 'Cập nhật voucher thành công' : 'Tạo voucher thành công'),
@@ -158,8 +156,7 @@ class _AdminAddVoucherScreenNewState extends State<AdminAddVoucherScreenNew> {
           );
           Navigator.of(context).pop(true);
         } else {
-          final error = jsonDecode(response.body);
-          throw Exception(error['detail'] ?? 'Lỗi không xác định');
+          throw Exception(result['error'] ?? 'Lỗi không xác định');
         }
       }
     } catch (e) {
