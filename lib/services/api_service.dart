@@ -416,6 +416,25 @@ class ApiService {
     }
   }
 
+  /// Get books by author
+  static Future<List<dynamic>> getBooksByAuthor(int authorId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/api/books/by-author/$authorId'),
+        headers: await _getHeaders(),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['books'] ?? [];
+      }
+      return [];
+    } catch (e) {
+      print('❌ Get books by author error: $e');
+      return [];
+    }
+  }
+
   /// Create new author
   static Future<Map<String, dynamic>?> createAuthor(String penName) async {
     try {

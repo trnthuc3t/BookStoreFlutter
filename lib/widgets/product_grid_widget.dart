@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import '../models/product.dart';
+import '../utils/image_utils.dart';
 
 class ProductGridWidget extends StatelessWidget {
   final List<Product> products;
@@ -21,7 +22,7 @@ class ProductGridWidget extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 0.7,
+        childAspectRatio: 0.68,  // Adjusted to fix overflow issue
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
       ),
@@ -46,34 +47,19 @@ class ProductGridWidget extends StatelessWidget {
           children: [
             // Product image
             Expanded(
-              flex: 3,
+              flex: 3,  // Balanced flex ratio to prevent overflow
               child: Stack(
                 children: [
                   Container(
                     width: double.infinity,
+                    margin: const EdgeInsets.all(8),  // Thêm margin để tạo khoảng cách với viền
                     decoration: BoxDecoration(
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                      borderRadius: BorderRadius.circular(8),
                       color: Colors.grey.shade100,
                     ),
                     child: ClipRRect(
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-                      child: product.image != null
-                          ? Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: CachedNetworkImage(
-                                imageUrl: product.image!,
-                                fit: BoxFit.contain,
-                                placeholder: (context, url) => const Center(
-                                  child: CircularProgressIndicator(),
-                                ),
-                                errorWidget: (context, url, error) => const Center(
-                                  child: Icon(Icons.book, size: 50, color: Colors.grey),
-                                ),
-                              ),
-                            )
-                          : const Center(
-                              child: Icon(Icons.book, size: 50, color: Colors.grey),
-                            ),
+                      borderRadius: BorderRadius.circular(8),
+                      child: _buildProductImage(product),
                     ),
                   ),
                   // Tags Nổi bật và Bán chạy
@@ -159,81 +145,127 @@ class ProductGridWidget extends StatelessWidget {
             ),
 
             // Product info
-            Expanded(
-              flex: 2,
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Product name
-                    Text(
-                      product.name ?? '',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Product name
+                  Text(
+                    product.name ?? '',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+
+                  // Rating
+                  Row(
+                    children: [
+                      RatingBarIndicator(
+                        rating: product.rate,
+                        itemBuilder: (context, index) => const Icon(
+                          Icons.star,
+                          color: Colors.amber,
+                        ),
+                        itemCount: 5,
+                        itemSize: 11,
+                        direction: Axis.horizontal,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
+                      const SizedBox(width: 4),
+                      Text(
+                        '(${product.ratingCount})',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
 
-                    // Rating
-                    Row(
-                      children: [
-                        RatingBarIndicator(
-                          rating: product.rate,
-                          itemBuilder: (context, index) => const Icon(
-                            Icons.star,
-                            color: Colors.amber,
-                          ),
-                          itemCount: 5,
-                          itemSize: 12,
-                          direction: Axis.horizontal,
-                        ),
-                        const SizedBox(width: 4),
+                  // Price
+                  Row(
+                    children: [
+                      if (product.originalPrice != null && product.originalPrice! > product.price) ...[
                         Text(
-                          '(${product.ratingCount})',
+                          '${(product.originalPrice! / 1000).toStringAsFixed(0)}k',
                           style: const TextStyle(
-                            fontSize: 10,
-                            color: Colors.grey,
+                            decoration: TextDecoration.lineThrough,
+                            color: Colors.red,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
+                        const SizedBox(width: 6),
                       ],
-                    ),
-                    const SizedBox(height: 4),
-
-                    // Price
-                    Row(
-                      children: [
-                        Text(
-                          '${(product.realPrice / 1000).toStringAsFixed(0)}k',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue,
-                            fontSize: 14,
-                          ),
+                      Text(
+                        '${(product.price / 1000).toStringAsFixed(0)}k',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue,
+                          fontSize: 14,
                         ),
-                        if (product.sale > 0) ...[
-                          const SizedBox(width: 4),
-                          Text(
-                            '${(product.price / 1000).toStringAsFixed(0)}k',
-                            style: const TextStyle(
-                              decoration: TextDecoration.lineThrough,
-                              color: Colors.grey,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildProductImage(Product product) {
+    // Check for images array first (from API)
+    if (product.images != null && product.images!.isNotEmpty) {
+      String? imageUrl = ImageUtils.getPrimaryImageUrl(product.images);
+      
+      if (imageUrl != null && imageUrl.isNotEmpty) {
+        return CachedNetworkImage(
+          imageUrl: imageUrl,
+          fit: BoxFit.contain,
+          width: double.infinity,
+          height: double.infinity,
+          placeholder: (context, url) => const Center(
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          errorWidget: (context, url, error) => const Center(
+            child: Icon(Icons.book, size: 50, color: Colors.grey),
+          ),
+        );
+      }
+    }
+    
+    // Fallback to single image field
+    if (product.image != null && product.image!.isNotEmpty) {
+      String? imageUrl = ImageUtils.buildImageUrl(product.image);
+      
+      if (imageUrl != null) {
+        return CachedNetworkImage(
+          imageUrl: imageUrl,
+          fit: BoxFit.contain,
+          width: double.infinity,
+          height: double.infinity,
+          placeholder: (context, url) => const Center(
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          errorWidget: (context, url, error) => const Center(
+            child: Icon(Icons.book, size: 50, color: Colors.grey),
+          ),
+        );
+      }
+    }
+    
+    // Default placeholder
+    return const Center(
+      child: Icon(Icons.book, size: 50, color: Colors.grey),
     );
   }
 }

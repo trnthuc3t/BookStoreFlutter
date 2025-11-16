@@ -525,7 +525,6 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
                             // Use contain to maintain aspect ratio and fit within bounds
                             fit: BoxFit.contain,
                             alignment: Alignment.center,
-                            // Reduced cache size by 40%
                             memCacheWidth: 480, // 40% smaller (was 800)
                             memCacheHeight: 360, // 40% smaller (was 600)
                             maxWidthDiskCache: 720, // 40% smaller (was 1200)

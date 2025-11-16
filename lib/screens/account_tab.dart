@@ -44,7 +44,7 @@ class AccountTab extends StatelessWidget {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          authProvider.currentUser?.email ?? 'Guest',
+                          _getUserDisplayName(authProvider.currentUser),
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -247,5 +247,21 @@ class AccountTab extends StatelessWidget {
       trailing: const Icon(Icons.chevron_right),
       onTap: onTap,
     );
+  }
+
+  String _getUserDisplayName(dynamic user) {
+    if (user == null) return 'Guest';
+    
+    // Tạo tên đầy đủ từ firstName và lastName
+    final firstName = user.firstName ?? '';
+    final lastName = user.lastName ?? '';
+    final fullName = '$firstName $lastName'.trim();
+    
+    // Nếu có tên đầy đủ thì hiển thị, nếu không thì hiển thị email
+    if (fullName.isNotEmpty) {
+      return fullName;
+    }
+    
+    return user.email ?? 'Guest';
   }
 }

@@ -232,7 +232,7 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
             physics: const NeverScrollableScrollPhysics(),
             mainAxisSpacing: 12,
             crossAxisSpacing: 12,
-            childAspectRatio: 1.3,
+            childAspectRatio: 1,
             children: [
               _buildStatCard(
                 'Người dùng',
@@ -425,6 +425,7 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
         subtitle: Text('${order['user_name']}\n${formatter.format(date)}'),
         isThreeLine: true,
         trailing: Column(
+          mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
@@ -436,9 +437,9 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
                 color: Colors.green,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
                 color: _getStatusColor(order['status']),
                 borderRadius: BorderRadius.circular(12),

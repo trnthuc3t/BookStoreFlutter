@@ -38,6 +38,8 @@ class Product {
   int count;
   int totalPrice;
   int priceOneProduct;
+  int? originalPrice; // Add original_price field
+  int? stockQuantity; // Add stock_quantity field
 
   Product({
     this.id = 0,
@@ -60,6 +62,8 @@ class Product {
     this.count = 0,
     this.totalPrice = 0,
     this.priceOneProduct = 0,
+    this.originalPrice,
+    this.stockQuantity,
   });
 
   // Calculate real price after discount
@@ -107,25 +111,45 @@ class Product {
 
     return Product(
       id: json['id'] ?? 0,
-      name: json['name'],
+      name: json['name'] ?? json['title'],  // Support both 'name' and 'title'
       description: json['description'],
-      price: json['price'] ?? 0,
+      price: (json['price'] is double)
+          ? (json['price'] as double).toInt()
+          : (json['price'] ?? 0),
       image: json['image'],
       banner: json['banner'],
       categoryId: json['category_id'] ?? 0,
       categoryName: json['category_name'],
-      sale: json['sale'] ?? 0,
+      sale: (json['sale'] is double)
+          ? (json['sale'] as double).toInt()
+          : (json['sale'] ?? (json['discount_percentage'] is double
+              ? (json['discount_percentage'] as double).toInt()
+              : json['discount_percentage'] ?? 0)),
       isFeatured: json['isFeatured'] ?? json['is_featured'] ?? false,
       isBestseller: json['isBestseller'] ?? json['is_bestseller'] ?? false,
-      soldQuantity: json['sold_quantity'] ?? json['soldQuantity'],
+      soldQuantity: (json['sold_quantity'] is double)
+          ? (json['sold_quantity'] as double).toInt()
+          : (json['sold_quantity'] ?? json['soldQuantity'] ?? 0),
       images: json['images'],
       info: json['info'],
       rating: ratingMap,
       ratingAverage: (json['rating_average'] ?? 0.0).toDouble(),
-      ratingCount: json['rating_count'] ?? 0,
+      ratingCount: (json['rating_count'] is double)
+          ? (json['rating_count'] as double).toInt()
+          : (json['rating_count'] ?? 0),
       count: json['count'] ?? 0,
       totalPrice: json['totalPrice'] ?? 0,
       priceOneProduct: json['priceOneProduct'] ?? 0,
+      originalPrice: json['original_price'] != null
+          ? (json['original_price'] is double
+              ? (json['original_price'] as double).toInt()
+              : json['original_price'])
+          : null,
+      stockQuantity: json['stock_quantity'] != null
+          ? (json['stock_quantity'] is double
+              ? (json['stock_quantity'] as double).toInt()
+              : json['stock_quantity'])
+          : null,
     );
   }
 
@@ -159,6 +183,8 @@ class Product {
       'count': count,
       'totalPrice': totalPrice,
       'priceOneProduct': priceOneProduct,
+      'original_price': originalPrice,
+      'stock_quantity': stockQuantity,
     };
   }
 
@@ -183,6 +209,8 @@ class Product {
     int? count,
     int? totalPrice,
     int? priceOneProduct,
+    int? originalPrice,
+    int? stockQuantity,
   }) {
     return Product(
       id: id ?? this.id,
@@ -205,6 +233,8 @@ class Product {
       count: count ?? this.count,
       totalPrice: totalPrice ?? this.totalPrice,
       priceOneProduct: priceOneProduct ?? this.priceOneProduct,
+      originalPrice: originalPrice ?? this.originalPrice,
+      stockQuantity: stockQuantity ?? this.stockQuantity,
     );
   }
 }

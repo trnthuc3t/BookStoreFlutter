@@ -120,6 +120,9 @@ class ProductApiProvider with foundation.ChangeNotifier {
         name: bookData['title']?.toString() ?? 'Unknown',
         description: bookData['description']?.toString() ?? '',
         price: ((bookData['price'] ?? 0) as num).toInt(),
+        originalPrice: bookData['original_price'] != null 
+            ? ((bookData['original_price'] ?? 0) as num).toInt()
+            : null,
         image: imageUrl,
         categoryId: categoryId,
         categoryName: categoryName ?? '',
@@ -130,6 +133,7 @@ class ProductApiProvider with foundation.ChangeNotifier {
         ratingAverage: ((bookData['rating_average'] ?? 0.0) as num).toDouble(),
         ratingCount: bookData['rating_count'] ?? 0,
         count: bookData['stock_quantity'] ?? 0,
+        stockQuantity: bookData['stock_quantity'],
         images: bookData['images'],
       );
     } catch (e) {

@@ -69,6 +69,8 @@ class AuthProvider with ChangeNotifier {
       final userIdStr = prefs.getString('user_id');
       final email = prefs.getString('email');
       final role = prefs.getString('role');
+      final firstName = prefs.getString('first_name');
+      final lastName = prefs.getString('last_name');
 
       if (userIdStr == null || email == null) {
         print('❌ Missing user data despite token, skip auto login');
@@ -79,6 +81,8 @@ class AuthProvider with ChangeNotifier {
       _currentUser = app_models.User(
         id: userId,
         email: email,
+        firstName: firstName,
+        lastName: lastName,
         isAdmin: role == 'admin',
       );
 
@@ -122,6 +126,8 @@ class AuthProvider with ChangeNotifier {
         _currentUser = app_models.User(
           id: userData['id'],
           email: userData['email'] ?? '',
+          firstName: userData['first_name'],
+          lastName: userData['last_name'],
           isAdmin: userData['role'] == 'admin',
         );
 

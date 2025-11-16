@@ -7,6 +7,7 @@ import 'providers/cart_provider_new.dart';
 import 'providers/product_provider_new.dart'
     as api_providers; // API-based provider
 import 'providers/order_provider_new.dart' as api_order; // API-based order
+import 'providers/author_provider.dart';
 import 'providers/chat_provider.dart';
 import 'services/firebase_service.dart';
 import 'services/database_service.dart';
@@ -77,6 +78,8 @@ class BookSellApp extends StatelessWidget {
                 api_providers.ProductApiProvider()), // Use API provider
         ChangeNotifierProvider(
             create: (_) => api_order.OrderProvider()), // Use API order
+        ChangeNotifierProvider(
+            create: (_) => AuthorProvider()), // Author provider
         ChangeNotifierProvider(create: (_) => ChatProvider()),
       ],
       child: MaterialApp(

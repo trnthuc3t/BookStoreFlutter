@@ -5,12 +5,16 @@ class User {
   int? id;
   String? email;
   String? password;
+  String? firstName;
+  String? lastName;
   bool isAdmin;
 
   User({
     this.id,
     this.email,
     this.password,
+    this.firstName,
+    this.lastName,
     this.isAdmin = false,
   });
 
@@ -21,6 +25,8 @@ class User {
       id: json['id'],
       email: json['email'],
       password: json['password'],
+      firstName: json['firstName'] ?? json['first_name'],
+      lastName: json['lastName'] ?? json['last_name'],
       isAdmin: json['isAdmin'] ?? json['is_admin'] ?? false,
     );
   }
@@ -39,6 +45,8 @@ class User {
       'id': id,
       'email': email,
       'password': password,
+      'firstName': firstName,
+      'lastName': lastName,
       'isAdmin': isAdmin,
     };
   }
@@ -51,12 +59,16 @@ class User {
     int? id,
     String? email,
     String? password,
+    String? firstName,
+    String? lastName,
     bool? isAdmin,
   }) {
     return User(
       id: id ?? this.id,
       email: email ?? this.email,
       password: password ?? this.password,
+      firstName: firstName ?? this.firstName,
+      lastName: lastName ?? this.lastName,
       isAdmin: isAdmin ?? this.isAdmin,
     );
   }
