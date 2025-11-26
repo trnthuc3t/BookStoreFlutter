@@ -217,7 +217,10 @@ class _AdminAddProductScreenState extends State<AdminAddProductScreen> {
                     items: productProvider.categories.map((app_models.Category category) {
                       return DropdownMenuItem<int>(
                         value: category.id,
-                        child: Text(category.name ?? 'N/A'),
+                        child: Text(
+                          category.name ?? 'N/A',
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       );
                     }).toList(),
                     onChanged: (int? value) {

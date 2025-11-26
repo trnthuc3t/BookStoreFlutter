@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:async';
+import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/api_constants.dart';
@@ -9,6 +10,14 @@ class ApiService {
     final token = await _getStoredToken();
     return {
       'Content-Type': 'application/json',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
+  /// Headers for multipart/form-data requests (do NOT set Content-Type manually)
+  static Future<Map<String, String>> _getMultipartHeaders() async {
+    final token = await _getStoredToken();
+    return {
       if (token != null) 'Authorization': 'Bearer $token',
     };
   }
@@ -31,9 +40,22 @@ class ApiService {
     print('✅ Token stored successfully');
   }
 
+  static Future<void> _storeRefreshToken(String refreshToken) async {
+    print('💾 Storing refresh token...');
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('refresh_token', refreshToken);
+    print('✅ Refresh token stored successfully');
+  }
+
+  static Future<String?> _getStoredRefreshToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('refresh_token');
+  }
+
   static Future<void> _removeToken() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
+    await prefs.remove('refresh_token');
     await prefs.remove('user_id');
     await prefs.remove('username');
     await prefs.remove('email');
@@ -58,6 +80,10 @@ class ApiService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         await _storeToken(data['access_token']);
+        // Store refresh token if available
+        if (data.containsKey('refresh_token')) {
+          await _storeRefreshToken(data['refresh_token']);
+        }
         return data;
       }
 
@@ -108,6 +134,59 @@ class ApiService {
     } catch (e) {
       print('Login error: $e');
       throw Exception('Không thể kết nối đến máy chủ. Vui lòng thử lại.');
+    }
+  }
+
+  /// Refresh access token using refresh token
+  static Future<bool> refreshAccessToken() async {
+    try {
+      final refreshToken = await _getStoredRefreshToken();
+      if (refreshToken == null) {
+        print('❌ No refresh token available in storage');
+        return false;
+      }
+
+      print('🔄 Refreshing access token...');
+      print('   Refresh token (first 30 chars): ${refreshToken.substring(0, min(30, refreshToken.length))}...');
+      
+      final url = '${ApiConstants.refreshTokenUrl}?refresh_token=$refreshToken';
+      print('   POST $url');
+      
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          print('❌ Refresh token request timeout');
+          throw TimeoutException('Refresh timeout');
+        },
+      );
+
+      print('   Response status: ${response.statusCode}');
+      print('   Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        if (data.containsKey('access_token')) {
+          await _storeToken(data['access_token']);
+          print('✅ Access token refreshed successfully');
+          return true;
+        } else {
+          print('❌ Response missing access_token field');
+          return false;
+        }
+      } else {
+        print('❌ Failed to refresh token: ${response.statusCode} - ${response.body}');
+        return false;
+      }
+    } on TimeoutException catch (e) {
+      print('❌ Refresh token timeout: $e');
+      return false;
+    } catch (e, stackTrace) {
+      print('❌ Error refreshing token: $e');
+      print('   Stack trace: $stackTrace');
+      return false;
     }
   }
 
@@ -581,15 +660,31 @@ class ApiService {
     required int userId,
     required int bookId,
     int quantity = 1,
+    bool isRetry = false,
   }) async {
     try {
       final url =
           '${ApiConstants.cartUrl}?user_id=$userId&book_id=$bookId&quantity=$quantity';
       print('🛒 POST $url');
+      
+      final headers = await _getHeaders();
+      print('🔑 Headers: ${headers.keys.join(", ")}');
+      if (headers.containsKey('Authorization')) {
+        final token = headers['Authorization'] ?? '';
+        print('🔑 Auth header present: ${token.substring(0, min(20, token.length))}...');
+      } else {
+        print('⚠️ WARNING: No Authorization header!');
+      }
 
       final response = await http.post(
         Uri.parse(url),
-        headers: await _getHeaders(),
+        headers: headers,
+      ).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () {
+          print('❌ Add to cart request timeout after 15 seconds');
+          throw TimeoutException('Request timeout');
+        },
       );
 
       print('🛒 Add to cart response: ${response.statusCode}');
@@ -597,15 +692,46 @@ class ApiService {
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
+      } else if (response.statusCode == 401) {
+        print('❌ Unauthorized - Token may be invalid or expired');
+        
+        // Try to refresh token and retry once
+        if (!isRetry) {
+          print('🔄 Attempting to refresh token and retry...');
+          final refreshed = await refreshAccessToken();
+          if (refreshed) {
+            print('✅ Token refreshed, retrying add to cart...');
+            return await addToCart(
+              userId: userId,
+              bookId: bookId,
+              quantity: quantity,
+              isRetry: true,
+            );
+          }
+        }
+        
+        return {'error': 'unauthorized', 'message': 'Phiên đăng nhập hết hạn, vui lòng đăng nhập lại'};
+      } else if (response.statusCode == 403) {
+        print('❌ Forbidden - User not authorized to modify this cart');
+        return {'error': 'forbidden', 'message': 'Không có quyền thao tác'};
+      } else if (response.statusCode == 404) {
+        print('❌ Book not found');
+        return {'error': 'not_found', 'message': 'Sản phẩm không tồn tại'};
+      } else if (response.statusCode == 400) {
+        print('❌ Bad request - ${response.body}');
+        return {'error': 'bad_request', 'message': 'Không đủ hàng trong kho'};
       } else {
         print(
             '❌ Add to cart failed: ${response.statusCode} - ${response.body}');
-        return null;
+        return {'error': 'unknown', 'message': 'Lỗi không xác định'};
       }
+    } on TimeoutException catch (e) {
+      print('❌ Add to cart timeout: $e');
+      return {'error': 'timeout', 'message': 'Kết nối quá chậm, vui lòng thử lại'};
     } catch (e, stackTrace) {
       print('❌ Add to cart error: $e');
       print('Stack trace: $stackTrace');
-      return null;
+      return {'error': 'exception', 'message': 'Lỗi kết nối: ${e.toString()}'};
     }
   }
 
@@ -1293,8 +1419,8 @@ class ApiService {
             '${ApiConstants.baseUrl}/api/books/$bookId/upload-multiple-images'),
       );
 
-      // Add headers
-      final headers = await _getHeaders();
+      // Add auth header only (multipart will set its own Content-Type)
+      final headers = await _getMultipartHeaders();
       request.headers.addAll(headers);
 
       // Add image files
@@ -1358,8 +1484,8 @@ class ApiService {
         Uri.parse('${ApiConstants.baseUrl}/api/books/create-with-image'),
       );
 
-      // Add headers
-      final headers = await _getHeaders();
+      // Add auth header only (multipart will set its own Content-Type)
+      final headers = await _getMultipartHeaders();
       request.headers.addAll(headers);
 
       // Add fields

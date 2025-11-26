@@ -502,6 +502,9 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
       return;
     }
 
+    // Debug: log current images state
+    print('🧪 SUBMIT FORM - isEdit: ${widget.product != null}, newImages: ${_newImages.length}, existingImages: ${_existingImageUrls.length}');
+
     // Check if has images (new or existing)
     if (_newImages.isEmpty &&
         _existingImageUrls.isEmpty &&
@@ -578,6 +581,9 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
 
   Future<void> _updateProduct() async {
     final bookId = widget.product!['id'];
+
+    // Debug current image state before any API call
+    print('🧪 UPDATE PRODUCT - bookId: $bookId, newImages: ${_newImages.length}, existingImages: ${_existingImageUrls.length}');
 
     // Step 1: Update book details with ALL fields
     print('Updating book with full details...');
@@ -813,12 +819,18 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
                                 labelText: 'Chọn nhà xuất bản',
                                 border: OutlineInputBorder(),
                                 prefixIcon: Icon(Icons.business),
+                                contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 12),
                               ),
                               hint: const Text('-- Không chọn --'),
+                              isDense: false,
+                              isExpanded: true,
                               items: _publishers.map((publisher) {
                                 return DropdownMenuItem<int>(
                                   value: publisher['id'],
-                                  child: Text(publisher['name']),
+                                  child: Text(
+                                    publisher['name'],
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 );
                               }).toList(),
                               onChanged: (value) {
@@ -866,12 +878,19 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
                                 labelText: 'Chọn nhà cung cấp',
                                 border: OutlineInputBorder(),
                                 prefixIcon: Icon(Icons.local_shipping),
+                                contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 12),
                               ),
                               hint: const Text('-- Không chọn --'),
+                              isDense: false,
+                              isExpanded: true,
                               items: _suppliers.map((supplier) {
                                 return DropdownMenuItem<int>(
                                   value: supplier['id'],
-                                  child: Text(supplier['name']),
+                                  child: Text(
+                                    supplier['name'],
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                  ),
                                 );
                               }).toList(),
                               onChanged: (value) {

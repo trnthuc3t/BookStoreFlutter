@@ -9,6 +9,7 @@ class ApiConstants {
   // Authentication
   static const String registerUrl = '$baseUrl$apiPrefix/auth/register';
   static const String loginUrl = '$baseUrl$apiPrefix/auth/login';
+  static const String refreshTokenUrl = '$baseUrl$apiPrefix/auth/refresh';
   static const String checkUsernameUrl =
       '$baseUrl$apiPrefix/auth/check-username';
   static const String checkEmailUrl = '$baseUrl$apiPrefix/auth/check-email';

@@ -21,6 +21,7 @@ class ProductDetailScreen extends StatefulWidget {
 
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
   int _quantity = 1;
+  bool _isDescriptionExpanded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -185,7 +186,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             size: 16, color: Colors.grey),
                         const SizedBox(width: 8),
                         Text(
-                          'Danh mục: ${widget.product.categoryName}',
+                          'Thể loại: ${widget.product.categoryName}',
                           style: const TextStyle(color: Colors.grey),
                         ),
                       ],
@@ -196,36 +197,68 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   // Description
                   if (widget.product.description != null) ...[
                     const Text(
-                      'Mô tả',
+                      'Mô tả sách',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      widget.product.description!,
-                      style: const TextStyle(fontSize: 16),
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _isDescriptionExpanded = !_isDescriptionExpanded;
+                        });
+                      },
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.product.description!,
+                            style: const TextStyle(fontSize: 16),
+                            maxLines: _isDescriptionExpanded ? null : 3,
+                            overflow: _isDescriptionExpanded
+                                ? TextOverflow.visible
+                                : TextOverflow.ellipsis,
+                          ),
+                          if (widget.product.description!.length > 100) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              _isDescriptionExpanded
+                                  ? 'Thu gọn'
+                                  : 'Xem thêm',
+                              style: const TextStyle(
+                                color: Colors.blue,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 16),
                   ],
 
-                  // Info
-                  if (widget.product.info != null) ...[
-                    const Text(
-                      'Thông tin chi tiết',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                  // Detailed Information
+                  const Text(
+                    'Thông tin chi tiết',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      widget.product.info!,
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
+                  ),
+                  const SizedBox(height: 12),
+                  _buildDetailRow('Kích thước', widget.product.bookSize),
+                  _buildDetailRow('Năm xuất bản',
+                      widget.product.publishYear?.toString()),
+                  _buildDetailRow('Nhà cung cấp', widget.product.supplier),
+                  _buildDetailRow('Nhà xuất bản', widget.product.publisher),
+                  _buildDetailRow(
+                      'Số trang', widget.product.pageCount?.toString()),
+                  _buildDetailRow('Ngôn ngữ', widget.product.language),
+                  if (widget.product.info != null)
+                    _buildDetailRow('Thông tin thêm', widget.product.info),
+                  const SizedBox(height: 16),
 
                   // Quantity selector
                   const Text(
@@ -297,6 +330,40 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String? value) {
+    if (value == null || value.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 15,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -610,17 +610,35 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
     if (_bookData == null) return const SizedBox();
 
     final authors = _bookData!['authors'] as List<dynamic>?;
-    final coverType = _bookData!['cover_type'] as String?;
+    final coverType = _bookData!['cover_type'] is String ? _bookData!['cover_type'] as String : null;
     final length = _bookData!['length'] as num?;
     final width = _bookData!['width'] as num?;
     final thickness = _bookData!['thickness'] as num?;
+    final weight = _bookData!['weight'] as num?;
+    
+    // New fields - safe parsing
+    final bookSize = _bookData!['book_size'] is String ? _bookData!['book_size'] as String : null;
+    final publishYear = _bookData!['publication_year'];
+    final supplierName = _bookData!['supplier_name'] is String ? _bookData!['supplier_name'] as String : null;
+    final publisherName = _bookData!['publisher_name'] is String ? _bookData!['publisher_name'] as String : null;
+    final pageCount = _bookData!['pages'];
+    final language = _bookData!['language'] is String ? _bookData!['language'] as String : null;
+    final categoryName = _bookData!['category_name'] is String ? _bookData!['category_name'] as String : null;
 
     // Nếu không có thông tin gì thì không hiển thị
     if ((authors == null || authors.isEmpty) &&
         coverType == null &&
         length == null &&
         width == null &&
-        thickness == null) {
+        thickness == null &&
+        weight == null &&
+        bookSize == null &&
+        publishYear == null &&
+        supplierName == null &&
+        publisherName == null &&
+        pageCount == null &&
+        language == null &&
+        categoryName == null) {
       return const SizedBox();
     }
 
@@ -670,12 +688,92 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
               const SizedBox(height: 8),
             ],
 
-            // Dimensions
+            // Dimensions from length/width/thickness
             if (length != null || width != null || thickness != null) ...[
               _buildDetailRow(
                 icon: Icons.straighten,
                 label: 'Kích thước',
                 value: _formatDimensions(length, width, thickness),
+              ),
+              const SizedBox(height: 8),
+            ],
+            
+            // Weight
+            if (weight != null) ...[
+              _buildDetailRow(
+                icon: Icons.fitness_center,
+                label: 'Trọng lượng',
+                value: '${weight}g',
+              ),
+              const SizedBox(height: 8),
+            ],
+            
+            // Book Size (if available separately)
+            if (bookSize != null && bookSize.isNotEmpty) ...[
+              _buildDetailRow(
+                icon: Icons.straighten,
+                label: 'Kích thước sách',
+                value: bookSize,
+              ),
+              const SizedBox(height: 8),
+            ],
+            
+            // Publish Year
+            if (publishYear != null) ...[
+              _buildDetailRow(
+                icon: Icons.calendar_today,
+                label: 'Năm xuất bản',
+                value: publishYear.toString(),
+              ),
+              const SizedBox(height: 8),
+            ],
+            
+            // Supplier
+            if (supplierName != null && supplierName.isNotEmpty) ...[
+              _buildDetailRow(
+                icon: Icons.business,
+                label: 'Nhà cung cấp',
+                value: supplierName,
+              ),
+              const SizedBox(height: 8),
+            ],
+            
+            // Publisher
+            if (publisherName != null && publisherName.isNotEmpty) ...[
+              _buildDetailRow(
+                icon: Icons.apartment,
+                label: 'Nhà xuất bản',
+                value: publisherName,
+              ),
+              const SizedBox(height: 8),
+            ],
+            
+            // Page Count
+            if (pageCount != null) ...[
+              _buildDetailRow(
+                icon: Icons.menu_book,
+                label: 'Số trang',
+                value: pageCount.toString(),
+              ),
+              const SizedBox(height: 8),
+            ],
+            
+            // Language
+            if (language != null && language.isNotEmpty) ...[
+              _buildDetailRow(
+                icon: Icons.language,
+                label: 'Ngôn ngữ',
+                value: language,
+              ),
+              const SizedBox(height: 8),
+            ],
+            
+            // Category/Genre
+            if (categoryName != null && categoryName.isNotEmpty) ...[
+              _buildDetailRow(
+                icon: Icons.category,
+                label: 'Thể loại',
+                value: categoryName,
               ),
             ],
           ],
@@ -1066,48 +1164,92 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
       // Get user ID
       final prefs = await SharedPreferences.getInstance();
       final userIdStr = prefs.getString('user_id');
+      final token = prefs.getString('auth_token');
+      
+      // Debug logging
+      print('🛒 === ADD TO CART DEBUG ===');
+      print('User ID: $userIdStr');
+      print('Auth token exists: ${token != null}');
+      if (token != null) {
+        print('Token preview: ${token.substring(0, 20)}...');
+      }
+      print('Book ID: ${widget.bookId}');
+      print('Quantity: $_quantity');
+      print('========================');
 
       if (userIdStr == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('⚠️ Vui lòng đăng nhập để thêm vào giỏ hàng'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 2),
-          ),
-        );
+        print('❌ No user ID found in SharedPreferences!');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('⚠️ Vui lòng đăng nhập để thêm vào giỏ hàng'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+        return;
+      }
+      
+      if (token == null) {
+        print('❌ No auth token found in SharedPreferences!');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('⚠️ Vui lòng đăng nhập lại'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
         return;
       }
 
       final userId = int.tryParse(userIdStr);
       if (userId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('⚠️ Lỗi định dạng user ID'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 2),
-          ),
-        );
+        print('❌ Cannot parse user ID: $userIdStr');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('⚠️ Lỗi định dạng user ID'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
         return;
       }
 
       // Show loading
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Đang thêm vào giỏ hàng...'),
-          duration: Duration(seconds: 1),
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đang thêm vào giỏ hàng...'),
+            duration: Duration(seconds: 1),
+          ),
+        );
+      }
 
       // Add to cart via API
+      print('📤 Calling ApiService.addToCart...');
+      print('   Parameters: userId=$userId, bookId=${widget.bookId}, quantity=$_quantity');
+      
       final result = await ApiService.addToCart(
         userId: userId,
         bookId: widget.bookId,
         quantity: _quantity,
       );
+      
+      print('📥 API call completed');
+      print('   Result: ${result != null ? "Success" : "Failed (null)"}');
+      if (result != null) {
+        print('   Response data: $result');
+      }
 
       if (!mounted) return;
 
-      if (result != null) {
+      if (result != null && !result.containsKey('error')) {
+        print('✅ Successfully added to cart');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('✅ Đã thêm vào giỏ hàng!'),
@@ -1119,11 +1261,18 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
         // Reset quantity
         setState(() => _quantity = 1);
       } else {
+        // Handle error response
+        String errorMessage = '❌ Không thể thêm vào giỏ hàng';
+        if (result != null && result.containsKey('message')) {
+          errorMessage = result['message'];
+        }
+        
+        print('❌ Failed to add to cart - ${result?['error'] ?? 'null response'}');
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('❌ Không thể thêm vào giỏ hàng'),
+          SnackBar(
+            content: Text(errorMessage),
             backgroundColor: Colors.red,
-            duration: Duration(seconds: 2),
+            duration: const Duration(seconds: 3),
           ),
         );
       }

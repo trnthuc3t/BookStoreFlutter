@@ -40,6 +40,12 @@ class Product {
   int priceOneProduct;
   int? originalPrice; // Add original_price field
   int? stockQuantity; // Add stock_quantity field
+  String? bookSize; // Book dimensions
+  int? publishYear; // Year of publication
+  String? supplier; // Supplier name
+  String? publisher; // Publisher name
+  int? pageCount; // Number of pages
+  String? language; // Book language
 
   Product({
     this.id = 0,
@@ -64,6 +70,12 @@ class Product {
     this.priceOneProduct = 0,
     this.originalPrice,
     this.stockQuantity,
+    this.bookSize,
+    this.publishYear,
+    this.supplier,
+    this.publisher,
+    this.pageCount,
+    this.language,
   });
 
   // Calculate real price after discount
@@ -150,6 +162,20 @@ class Product {
               ? (json['stock_quantity'] as double).toInt()
               : json['stock_quantity'])
           : null,
+      bookSize: json['book_size'],
+      publishYear: json['publish_year'] != null
+          ? (json['publish_year'] is double
+              ? (json['publish_year'] as double).toInt()
+              : json['publish_year'])
+          : null,
+      supplier: json['supplier'],
+      publisher: json['publisher'],
+      pageCount: json['page_count'] != null
+          ? (json['page_count'] is double
+              ? (json['page_count'] as double).toInt()
+              : json['page_count'])
+          : null,
+      language: json['language'],
     );
   }
 
@@ -185,6 +211,12 @@ class Product {
       'priceOneProduct': priceOneProduct,
       'original_price': originalPrice,
       'stock_quantity': stockQuantity,
+      'book_size': bookSize,
+      'publish_year': publishYear,
+      'supplier': supplier,
+      'publisher': publisher,
+      'page_count': pageCount,
+      'language': language,
     };
   }
 
@@ -211,6 +243,12 @@ class Product {
     int? priceOneProduct,
     int? originalPrice,
     int? stockQuantity,
+    String? bookSize,
+    int? publishYear,
+    String? supplier,
+    String? publisher,
+    int? pageCount,
+    String? language,
   }) {
     return Product(
       id: id ?? this.id,
@@ -235,6 +273,12 @@ class Product {
       priceOneProduct: priceOneProduct ?? this.priceOneProduct,
       originalPrice: originalPrice ?? this.originalPrice,
       stockQuantity: stockQuantity ?? this.stockQuantity,
+      bookSize: bookSize ?? this.bookSize,
+      publishYear: publishYear ?? this.publishYear,
+      supplier: supplier ?? this.supplier,
+      publisher: publisher ?? this.publisher,
+      pageCount: pageCount ?? this.pageCount,
+      language: language ?? this.language,
     );
   }
 }
