@@ -487,66 +487,77 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
     }
 
     return Stack(
-      fit: StackFit.expand,
       children: [
         // Horizontal scrollable image gallery - one image at a time
-        Center(
-          child: SizedBox(
-            height: MediaQuery.of(context).size.height * 0.5,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              physics: const PageScrollPhysics(),
-              itemCount: _imageUrls.length,
-              itemBuilder: (context, index) {
-                return Container(
-                  width: MediaQuery.of(context).size.width, // Full width - one image at a time
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                  child: Center(
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() => _currentImageIndex = index);
-                      },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
+        SizedBox(
+          height: MediaQuery.of(context).size.height * 0.5,
+          child: PageView.builder(
+            physics: const PageScrollPhysics(),
+            itemCount: _imageUrls.length,
+            onPageChanged: (index) {
+              setState(() => _currentImageIndex = index);
+            },
+            itemBuilder: (context, index) {
+              return Container(
+                width: MediaQuery.of(context).size.width,
+                padding: const EdgeInsets.all(16),
+                child: Center(
+                  child: GestureDetector(
+                    onTap: () {
+                      // Optional: Show full screen image
+                    },
+                    child: Hero(
+                      tag: 'product_image_$index',
+                      child: CachedNetworkImage(
+                        imageUrl: _imageUrls[index],
+                        // Giữ tỷ lệ gốc, fit theo chiều ngang hoặc dọc
+                        fit: BoxFit.contain,
+                        alignment: Alignment.center,
+                        memCacheWidth: 800,
+                        memCacheHeight: 800,
+                        maxWidthDiskCache: 1200,
+                        maxHeightDiskCache: 1200,
+                        placeholder: (context, url) => Container(
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Center(
+                            child: CircularProgressIndicator(),
+                          ),
                         ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: CachedNetworkImage(
-                            imageUrl: _imageUrls[index],
-                            // Use contain to maintain aspect ratio and fit within bounds
-                            fit: BoxFit.contain,
-                            alignment: Alignment.center,
-                            memCacheWidth: 480, // 40% smaller (was 800)
-                            memCacheHeight: 360, // 40% smaller (was 600)
-                            maxWidthDiskCache: 720, // 40% smaller (was 1200)
-                            maxHeightDiskCache: 540, // 40% smaller (was 900)
-                            placeholder: (context, url) => Container(
-                              color: Colors.grey.shade200,
-                              child: const Center(
-                                child: CircularProgressIndicator(),
+                        errorWidget: (context, url, error) => Container(
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Icons.book, size: 100, color: Colors.grey),
+                        ),
+                        imageBuilder: (context, imageProvider) => Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
                               ),
-                            ),
-                            errorWidget: (context, url, error) => Container(
-                              color: Colors.grey.shade200,
-                              child: const Icon(Icons.book, size: 100),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image(
+                              image: imageProvider,
+                              fit: BoxFit.contain,
                             ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                );
-              },
-            ),
+                ),
+              );
+            },
           ),
         ),
 
