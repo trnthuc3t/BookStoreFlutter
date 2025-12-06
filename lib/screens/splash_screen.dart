@@ -42,10 +42,11 @@ class _SplashScreenState extends State<SplashScreen> {
       final authProvider =
           Provider.of<api_auth.AuthProvider>(context, listen: false);
       if (authProvider.isLoggedIn) {
-        // Check if user is admin
+        // Check if user is admin or staff
         final isAdmin = authProvider.currentUser?.isAdmin ?? false;
+        final isStaff = authProvider.currentUser?.isStaff ?? false;
 
-        if (isAdmin) {
+        if (isAdmin || isStaff) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (context) => const AdminMainScreen()),
           );
@@ -89,12 +90,13 @@ class _SplashScreenState extends State<SplashScreen> {
       if (!mounted) return;
 
       if (authProvider.isLoggedIn) {
-        // Check if user is admin
+        // Check if user is admin or staff
         final isAdmin = authProvider.currentUser?.isAdmin ?? false;
+        final isStaff = authProvider.currentUser?.isStaff ?? false;
 
-        print('🔐 Auto-login detected. User is ${isAdmin ? "ADMIN" : "USER"}');
+        print('🔐 Auto-login detected. User is ${isAdmin ? "ADMIN" : isStaff ? "STAFF" : "USER"}');
 
-        if (isAdmin) {
+        if (isAdmin || isStaff) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (context) => const AdminMainScreen()),
           );

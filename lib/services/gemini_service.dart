@@ -142,12 +142,16 @@ class GeminiService {
         }
         buffer.writeln();
 
-        // Price with sale info
+        // Price info - Show both for debugging
         if (product.sale > 0) {
           buffer.writeln(
-              '   💰 ${product.realPrice}k (Giảm ${product.sale}% từ ${product.price}k) - ĐANG SALE!');
+              '   💰 Giá hiện tại: ${product.price}k');
+          buffer.writeln(
+              '   🏷️ Đang giảm ${product.sale}%');
+          buffer.writeln(
+              '   ✅ Giá khách trả: ${product.realPrice}k 🔥');
         } else {
-          buffer.writeln('   💰 ${product.realPrice}k');
+          buffer.writeln('   💰 Giá: ${product.price}k');
         }
 
         // Category and rating
@@ -157,6 +161,26 @@ class GeminiService {
               '   ⭐ ${product.rate}/5 (${product.countReviews} đánh giá)');
         } else {
           buffer.writeln('   ⭐ Chưa có đánh giá');
+        }
+
+        // Book details (NO stock/sold info for regular users)
+        if (product.publisher?.isNotEmpty == true) {
+          buffer.writeln('   🏢 NXB: ${product.publisher}');
+        }
+        if (product.supplier?.isNotEmpty == true) {
+          buffer.writeln('   🏪 Nhà cung cấp: ${product.supplier}');
+        }
+        if (product.pageCount != null && product.pageCount! > 0) {
+          buffer.writeln('   📄 Số trang: ${product.pageCount}');
+        }
+        if (product.publishYear != null && product.publishYear! > 0) {
+          buffer.writeln('   📅 Năm xuất bản: ${product.publishYear}');
+        }
+        if (product.language?.isNotEmpty == true) {
+          buffer.writeln('   🌐 Ngôn ngữ: ${product.language}');
+        }
+        if (product.bookSize?.isNotEmpty == true) {
+          buffer.writeln('   📏 Kích thước: ${product.bookSize}');
         }
 
         // Description
@@ -183,33 +207,64 @@ class GeminiService {
       }
     }
 
-    // User orders
+    // User orders with detailed information
     if (userOrders != null && userOrders.isNotEmpty) {
-      buffer.writeln('=== ĐƠN HÀNG ===\n');
-      for (var order in userOrders) {
-        buffer.writeln('Đơn #${order.id}');
-        buffer.writeln('- Tổng: ${order.totalAmount}k');
-        buffer.writeln('- Trạng thái: ${order.statusText}');
-        buffer.writeln(
-            '- Ngày đặt: ${order.createdAt?.toIso8601String() ?? 'N/A'}');
-        buffer.writeln('- Phương thức thanh toán: ${order.paymentMethod}');
-
-        // Note: Order model doesn't have products field, this would need to be implemented
-        // if (order.products?.isNotEmpty == true) {
-        //   buffer.writeln('- Sản phẩm đã mua:');
-        //   for (var product in order.products!) {
-        //     buffer.writeln('  • ${product.name} (SL: ${product.count}, Giá: ${product.price}k)');
-        //   }
-        // }
-
-        if (order.address != null) {
-          buffer.writeln('- Địa chỉ giao hàng:');
-          buffer.writeln('  • Địa chỉ: ${order.address}');
+      buffer.writeln('=== 📦 LỊCH SỬ ĐƠN HÀNG (${userOrders.length} đơn) ===\n');
+      
+      // Sort by date (newest first)
+      final sortedOrders = List<Order>.from(userOrders);
+      sortedOrders.sort((a, b) {
+        if (a.createdAt == null) return 1;
+        if (b.createdAt == null) return -1;
+        return b.createdAt!.compareTo(a.createdAt!);
+      });
+      
+      for (int i = 0; i < sortedOrders.length && i < 10; i++) {
+        final order = sortedOrders[i];
+        buffer.writeln('📋 Đơn hàng #${order.id}');
+        
+        // Status with emoji
+        String statusEmoji = '⏳';
+        if (order.status == 'completed') statusEmoji = '✅';
+        else if (order.status == 'cancelled') statusEmoji = '❌';
+        else if (order.status == 'processing') statusEmoji = '🚚';
+        buffer.writeln('   $statusEmoji Trạng thái: ${order.statusText}');
+        
+        buffer.writeln('   💰 Tổng tiền: ${order.totalAmount}k');
+        
+        if (order.createdAt != null) {
+          final date = order.createdAt!;
+          buffer.writeln('   📅 Ngày đặt: ${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}');
         }
+        
+        if (order.paymentMethod?.isNotEmpty == true) {
+          buffer.writeln('   💳 Thanh toán: ${order.paymentMethod}');
+        }
+        
+        if (order.userName?.isNotEmpty == true) {
+          buffer.writeln('   👤 Người nhận: ${order.userName}');
+        }
+        
+        if (order.phone?.isNotEmpty == true) {
+          buffer.writeln('   📞 SĐT: ${order.phone}');
+        }
+        
+        if (order.address?.isNotEmpty == true) {
+          buffer.writeln('   📍 Địa chỉ: ${order.address}');
+        }
+        
+        if (order.notes?.isNotEmpty == true) {
+          buffer.writeln('   📝 Ghi chú: ${order.notes}');
+        }
+        
         buffer.writeln();
       }
+      
+      if (userOrders.length > 10) {
+        buffer.writeln('... và ${userOrders.length - 10} đơn hàng khác\n');
+      }
     } else {
-      buffer.writeln('=== ĐƠN HÀNG ===\nChưa có đơn hàng.\n');
+      buffer.writeln('=== 📦 LỊCH SỬ ĐƠN HÀNG ===\n❌ Khách hàng chưa có đơn hàng nào.\n');
     }
 
     // Vouchers with details
@@ -312,13 +367,30 @@ Bạn có quyền truy cập đầy đủ vào:
    - So sánh, phân tích nếu khách phân vân
    - SAU KHI TƯ VẤN, luôn nhắc: "Muốn đặt ngay không? Gõ 'Mua [tên sách]' nhé!"
 
-4. THÔNG TIN CHI TIẾT:
-   - Trả lời về nội dung, tác giả, giá, khuyến mãi
+4. THÔNG TIN CHI TIẾT SÁCH:
+   - Khi khách hỏi về sách, trả lời ĐẦY ĐỦ:
+     📚 Tên sách, tác giả (nếu có)
+     🏢 Nhà xuất bản, năm xuất bản
+     📄 Số trang, kích thước, ngôn ngữ
+     💰 Giá (realPrice là giá CUỐI CÙNG sau giảm, KHÔNG tính lại)
+     ⭐ Đánh giá, số lượt đánh giá
+     📝 Mô tả ngắn gọn về nội dung
+   - Dùng thông tin từ database, KHÔNG bịa đặt
+   - KHÔNG hiển thị tồn kho, đã bán (thông tin nội bộ)
+   
+5. THÔNG TIN ĐƠN HÀNG:
+   - Tra cứu lịch sử đơn hàng của khách
+   - Hiển thị: Mã đơn, trạng thái, tổng tiền, ngày đặt
+   - Thông tin giao hàng: Người nhận, SĐT, địa chỉ
+   - Phương thức thanh toán
+   - Ghi chú đơn hàng (nếu có)
+   
+6. VOUCHER & KHUYẾN MÃI:
    - Giải thích voucher: điều kiện, cách dùng
-   - Tra cứu đơn hàng: trạng thái, sản phẩm, địa chỉ
-   - Đọc và trích dẫn mô tả/nội dung sách nếu khách hỏi
+   - Tính toán giá sau khi dùng voucher
+   - Gợi ý voucher phù hợp với đơn hàng
 
-5. XỬ LÝ ĐẶC BIỆT:
+7. XỬ LÝ ĐẶC BIỆT:
    - Nếu không tìm thấy: Gợi ý sách tương tự
    - Nếu hết hàng/không có: Thông báo lịch sự + đề xuất thay thế
    - Nếu giá cao: Nhắc voucher, sách rẻ hơn cùng thể loại
@@ -326,8 +398,25 @@ Bạn có quyền truy cập đầy đủ vào:
 
 📝 LƯU Ý QUAN TRỌNG:
 • Luôn dùng ID-xxx khi nhắc đến sách cụ thể
-• Giá đã bao gồm sale (realPrice)
+
+• ⚠️⚠️⚠️ CỰC KỲ QUAN TRỌNG VỀ GIÁ - ĐỌC KỸ:
+  📌 "Giá khách trả" = realPrice = GIÁ CUỐI CÙNG (đã tính giảm giá)
+  📌 "Giá hiện tại" = price = GIÁ TRƯỚC KHI GIẢM
+  📌 "Đang giảm X%" = sale = PHẦN TRĂM GIẢM GIÁ
+  
+  🔢 CÔNG THỨC: realPrice = price - (price × sale / 100)
+  ⚠️ realPrice ĐÃ ĐƯỢC TÍNH SẴN - KHÔNG TÍNH LẠI!
+  
+  ✅ ĐÚNG: "Giá: {realPrice}k" hoặc "Giá: {realPrice}k (Giảm {sale}%)"
+  ❌ SAI: Tính toán bất kỳ phép tính nào với giá
+  
+  🚨 KHI KHÁCH HỎI GIÁ:
+  - Trả lời: "Giá: {realPrice}k" (đây là giá khách phải trả)
+  - Nếu có sale: "Giá: {realPrice}k (Giảm {sale}% từ {price}k)"
+  - TUYỆT ĐỐI KHÔNG tính toán lại
+  
 • Tất cả giá tính bằng "k" (nghìn đồng)
+• KHÔNG tiết lộ tồn kho, đã bán cho khách hàng
 • Đơn hàng COD hoặc ZaloPay, ship toàn quốc
 • Nếu thiếu info: Nói thẳng + gợi ý cách khác
 
@@ -339,21 +428,30 @@ Bạn có quyền truy cập đầy đủ vào:
 
 ✅ VÍ DỤ TRẢ LỜI ĐÚNG:
 
-Khách: "Tôi muốn mua Đắc Nhân Tâm"
-Bot: "Tuyệt vời! 📚 Đắc Nhân Tâm (ID-5) - 80k, đang sale 10%! ⭐ 4.8/5
+VÍ DỤ 1 - Sách có giảm giá:
+Data: price=100k, sale=20%, realPrice=80k
+Khách: "Đắc Nhân Tâm giá bao nhiêu?"
+Bot: "📚 Đắc Nhân Tâm
+💰 Giá: 80k (Giảm 20% từ 100k) 🔥
+⭐ 4.8/5
+🏢 NXB: Trẻ
 
-Để đặt ngay qua chatbot, bạn gõ:
-🛒 'Mua Đắc Nhân Tâm 1 cuốn'
+Muốn đặt ngay không? Gõ 'Mua Đắc Nhân Tâm' nhé! 😊"
 
-Hoặc nếu muốn nhiều hơn:
-🛒 'Mua Đắc Nhân Tâm 3 cuốn'
+VÍ DỤ 2 - Sách không giảm:
+Data: price=95004k, sale=0%, realPrice=95004k
+Khách: "Sách X giá bao nhiêu?"
+Bot: "📚 Sách X
+💰 Giá: 95004k
+⭐ 4.5/5
 
-Mình sẽ xử lý đơn trong 30 giây! 😊"
+Muốn đặt không? Gõ 'Mua Sách X' nhé!"
 
 ❌ VÍ DỤ TRẢ LỜI SAI:
+"Giá: 100k" (khi realPrice=80k - SAI!)
+"Giá: 64k" (tính 80k * 0.8 - SAI!)
+"Giá: 76004k" (khi realPrice=95004k - SAI!)
 "Bạn có thể vào giỏ hàng để đặt sách nhé!"
-"Vui lòng xem thêm trong mục sản phẩm"
-"Bạn có thể đặt hàng qua app"
 
 ❓ CÂU HỎI KHÁCH HÀNG:
 $userMessage

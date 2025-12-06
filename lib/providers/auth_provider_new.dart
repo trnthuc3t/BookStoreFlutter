@@ -83,7 +83,9 @@ class AuthProvider with ChangeNotifier {
         email: email,
         firstName: firstName,
         lastName: lastName,
+        role: role,
         isAdmin: role == 'admin',
+        isStaff: role == 'staff',
       );
 
       print('✅ Auto login successful with token - ID: $userId');
@@ -128,7 +130,9 @@ class AuthProvider with ChangeNotifier {
           email: userData['email'] ?? '',
           firstName: userData['first_name'],
           lastName: userData['last_name'],
+          role: userData['role'],
           isAdmin: userData['role'] == 'admin',
+          isStaff: userData['role'] == 'staff',
         );
 
         // Store email for auto login

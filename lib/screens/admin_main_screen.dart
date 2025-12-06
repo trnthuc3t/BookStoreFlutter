@@ -18,16 +18,84 @@ class AdminMainScreen extends StatefulWidget {
 class _AdminMainScreenState extends State<AdminMainScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = [
-    const AdminDashboardTab(),
-    const AdminOrdersTab(),
-    const AdminProductsTab(),
-    const AdminVoucherDashboardScreen(),
-    const AdminUsersTab(),
-  ];
+  List<Widget> _getScreens() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final isAdmin = authProvider.currentUser?.isAdmin ?? false;
+    
+    // Staff không được xem Dashboard (doanh thu)
+    if (isAdmin) {
+      return [
+        const AdminDashboardTab(),
+        const AdminOrdersTab(),
+        const AdminProductsTab(),
+        const AdminVoucherDashboardScreen(),
+        const AdminUsersTab(),
+      ];
+    } else {
+      // Staff chỉ xem Orders, Products, Vouchers, Users
+      return [
+        const AdminOrdersTab(),
+        const AdminProductsTab(),
+        const AdminVoucherDashboardScreen(),
+        const AdminUsersTab(),
+      ];
+    }
+  }
+
+  List<BottomNavigationBarItem> _getNavItems() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final isAdmin = authProvider.currentUser?.isAdmin ?? false;
+    
+    if (isAdmin) {
+      return const [
+        BottomNavigationBarItem(
+          icon: Icon(Icons.dashboard),
+          label: 'Dashboard',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.shopping_bag),
+          label: 'Đơn hàng',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.inventory),
+          label: 'Sản phẩm',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.discount),
+          label: 'Voucher',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.people),
+          label: 'Người dùng',
+        ),
+      ];
+    } else {
+      return const [
+        BottomNavigationBarItem(
+          icon: Icon(Icons.shopping_bag),
+          label: 'Đơn hàng',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.inventory),
+          label: 'Sản phẩm',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.discount),
+          label: 'Voucher',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.people),
+          label: 'Người dùng',
+        ),
+      ];
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final screens = _getScreens();
+    final navItems = _getNavItems();
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('Admin Panel'),
@@ -68,7 +136,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
           ),
         ],
       ),
-      body: _screens[_currentIndex],
+      body: screens[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) {
@@ -79,28 +147,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
         type: BottomNavigationBarType.fixed,
         selectedItemColor: Colors.orange,
         unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard),
-            label: 'Dashboard',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.shopping_bag),
-            label: 'Đơn hàng',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.inventory),
-            label: 'Sản phẩm',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.discount),
-            label: 'Voucher',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.people),
-            label: 'Người dùng',
-          ),
-        ],
+        items: navItems,
       ),
     );
   }
@@ -1262,6 +1309,60 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
     }
   }
 
+  Future<void> _toggleStaffRole(
+      int userId, bool currentIsStaff, String userName, int userIndex) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(currentIsStaff ? 'Hủy quyền Staff' : 'Cấp quyền Staff'),
+        content: Text(
+          currentIsStaff
+              ? 'Bạn có chắc muốn hủy quyền Staff của $userName?\nUser sẽ trở thành khách hàng thông thường.'
+              : 'Bạn có chắc muốn cấp quyền Staff cho $userName?\nUser sẽ có thể truy cập Admin Panel (trừ Dashboard).',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: currentIsStaff ? Colors.orange : Colors.blue,
+            ),
+            child: const Text('Xác nhận'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final success = await ApiService.toggleStaffRole(
+        userId: userId,
+        isStaff: !currentIsStaff,
+      );
+
+      if (success && mounted) {
+        // Cập nhật UI ngay lập tức
+        setState(() {
+          _users[userIndex]['role'] = currentIsStaff ? 'customer' : 'staff';
+          _users[userIndex]['role_id'] = currentIsStaff ? 3 : 2;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              currentIsStaff
+                  ? '✅ Đã hủy quyền Staff của $userName'
+                  : '✅ Đã cấp quyền Staff cho $userName',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -1278,6 +1379,12 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
           final formatter = DateFormat('dd/MM/yyyy');
           final createdAt = DateTime.parse(user['created_at']);
           final isAdmin = user['role'] == 'admin';
+          final isStaff = user['role'] == 'staff';
+          final roleId = user['role_id'] ?? 3;
+
+          // Get current user to check if they're admin
+          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+          final currentUserIsAdmin = authProvider.currentUser?.isAdmin ?? false;
 
           return Card(
             margin: const EdgeInsets.only(bottom: 12),
@@ -1287,7 +1394,7 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
               contentPadding: const EdgeInsets.all(12),
               leading: CircleAvatar(
                 backgroundColor: user['is_active']
-                    ? (isAdmin ? Colors.orange : Colors.green)
+                    ? (isAdmin ? Colors.orange : isStaff ? Colors.blue : Colors.green)
                     : Colors.red,
                 child: Text(
                   (user['username'] ?? 'U')[0].toUpperCase(),
@@ -1313,6 +1420,20 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
                       ),
                       child: const Text(
                         'ADMIN',
+                        style: TextStyle(color: Colors.white, fontSize: 10),
+                      ),
+                    ),
+                  if (isStaff)
+                    Container(
+                      margin: const EdgeInsets.only(left: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.blue,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'STAFF',
                         style: TextStyle(color: Colors.white, fontSize: 10),
                       ),
                     ),
@@ -1343,13 +1464,38 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
                       Text('Tham gia: ${formatter.format(createdAt)}'),
                     ],
                   ),
+                  // Staff toggle for admin only
+                  if (currentUserIsAdmin && !isAdmin) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(Icons.admin_panel_settings,
+                            size: 14, color: Colors.blue),
+                        const SizedBox(width: 4),
+                        const Text('Quyền Staff:', style: TextStyle(fontSize: 12)),
+                        const SizedBox(width: 8),
+                        Switch(
+                          value: isStaff,
+                          activeColor: Colors.blue,
+                          onChanged: (value) => _toggleStaffRole(
+                            user['id'],
+                            isStaff,
+                            '${user['first_name']} ${user['last_name']}',
+                            index,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
               trailing: Switch(
                 value: user['is_active'],
                 activeColor: Colors.green,
-                onChanged: isAdmin
-                    ? null // Cannot deactivate admin
+                // Admin không thể bị vô hiệu hóa
+                // Staff không thể vô hiệu hóa admin hoặc staff khác
+                onChanged: (isAdmin || (!currentUserIsAdmin && (isAdmin || isStaff)))
+                    ? null
                     : (value) => _toggleUserStatus(
                           user['id'],
                           user['is_active'],

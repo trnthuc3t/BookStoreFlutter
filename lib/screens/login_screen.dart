@@ -47,11 +47,12 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       if (success) {
-        // Check if user is admin and navigate to appropriate screen
+        // Check if user is admin/staff and navigate to appropriate screen
         final isAdmin = authProvider.currentUser?.isAdmin ?? false;
+        final isStaff = authProvider.currentUser?.isStaff ?? false;
 
-        if (isAdmin) {
-          // Navigate to Admin Panel
+        if (isAdmin || isStaff) {
+          // Navigate to Admin Panel (both admin and staff)
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (_) => const AdminMainScreen()),
           );

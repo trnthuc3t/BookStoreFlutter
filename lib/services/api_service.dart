@@ -1597,6 +1597,33 @@ class ApiService {
     }
   }
 
+  /// Toggle staff role for user (admin only)
+  static Future<bool> toggleStaffRole({
+    required int userId,
+    required bool isStaff,
+  }) async {
+    try {
+      print('🔄 Toggling staff role for user $userId to: $isStaff');
+      final response = await http.put(
+        Uri.parse(
+            '${ApiConstants.baseUrl}/api/admin/users/$userId/staff-role?is_staff=$isStaff'),
+        headers: await _getHeaders(),
+      );
+
+      if (response.statusCode == 200) {
+        print('✅ Staff role toggled successfully');
+        return true;
+      } else {
+        print('❌ Failed to toggle staff role: ${response.statusCode}');
+        print('Response: ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      print('❌ Toggle staff role error: $e');
+      return false;
+    }
+  }
+
   // ============================================
   // ORDER API METHODS
   // ============================================

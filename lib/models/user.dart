@@ -8,6 +8,8 @@ class User {
   String? firstName;
   String? lastName;
   bool isAdmin;
+  bool isStaff;
+  String? role;
 
   User({
     this.id,
@@ -16,18 +18,23 @@ class User {
     this.firstName,
     this.lastName,
     this.isAdmin = false,
+    this.isStaff = false,
+    this.role,
   });
 
-  User.withCredentials(this.email, this.password) : isAdmin = false;
+  User.withCredentials(this.email, this.password) : isAdmin = false, isStaff = false;
 
   factory User.fromJson(Map<String, dynamic> json) {
+    final role = json['role'] as String?;
     return User(
       id: json['id'],
       email: json['email'],
       password: json['password'],
       firstName: json['firstName'] ?? json['first_name'],
       lastName: json['lastName'] ?? json['last_name'],
-      isAdmin: json['isAdmin'] ?? json['is_admin'] ?? false,
+      role: role,
+      isAdmin: role == 'admin' || json['isAdmin'] == true || json['is_admin'] == true,
+      isStaff: role == 'staff',
     );
   }
 
@@ -36,7 +43,8 @@ class User {
       id: null,
       email: firebaseUser.email,
       password: null,
-      isAdmin: false, // Default to false, can be updated from database
+      isAdmin: false,
+      isStaff: false,
     );
   }
 
@@ -48,6 +56,8 @@ class User {
       'firstName': firstName,
       'lastName': lastName,
       'isAdmin': isAdmin,
+      'isStaff': isStaff,
+      'role': role,
     };
   }
 
@@ -62,6 +72,8 @@ class User {
     String? firstName,
     String? lastName,
     bool? isAdmin,
+    bool? isStaff,
+    String? role,
   }) {
     return User(
       id: id ?? this.id,
@@ -70,6 +82,8 @@ class User {
       firstName: firstName ?? this.firstName,
       lastName: lastName ?? this.lastName,
       isAdmin: isAdmin ?? this.isAdmin,
+      isStaff: isStaff ?? this.isStaff,
+      role: role ?? this.role,
     );
   }
 }

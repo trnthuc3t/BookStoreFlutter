@@ -39,20 +39,21 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: const Text('Quên mật khẩu'),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
           child: Form(
             key: _formKey,
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                SizedBox(height: MediaQuery.of(context).size.height * 0.05),
                 const Icon(
                   Icons.lock_reset,
                   size: 80,
@@ -164,6 +165,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     child: const Text('Quay lại đăng nhập'),
                   ),
                 ],
+                SizedBox(height: MediaQuery.of(context).viewInsets.bottom + 16),
               ],
             ),
           ),
