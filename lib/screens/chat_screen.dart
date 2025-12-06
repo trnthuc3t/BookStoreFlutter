@@ -21,10 +21,31 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     _initializeChat();
+    
+    // Auto scroll to bottom when new messages arrive
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final chatProvider = Provider.of<ChatProvider>(context, listen: false);
+      chatProvider.addListener(_scrollToBottom);
+    });
+  }
+  
+  void _scrollToBottom() {
+    // Delay to ensure the message is rendered
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   @override
   void dispose() {
+    final chatProvider = Provider.of<ChatProvider>(context, listen: false);
+    chatProvider.removeListener(_scrollToBottom);
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -44,6 +65,9 @@ class _ChatScreenState extends State<ChatScreen> {
       );
       await productProvider.loadProducts();
       // Order loading will be handled when needed
+      
+      // Scroll to bottom after loading messages
+      _scrollToBottom();
     }
   }
 

@@ -901,7 +901,7 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 16), 
 
                     // Authors Selection
                     Card(

@@ -70,7 +70,14 @@ class _PaymentMethodScreenState extends State<PaymentMethodScreen> {
         actions: [
           TextButton(
             onPressed: _selectedMethodId != 0 ? _selectMethod : null,
-            child: const Text('Chọn'),
+            child: Text(
+              'Chọn',
+              style: TextStyle(
+                color: _selectedMethodId != 0 ? Colors.blue.shade700 : Colors.grey,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
           ),
         ],
       ),

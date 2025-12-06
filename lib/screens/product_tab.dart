@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/product_provider_new.dart' as api_providers;
+import '../providers/cart_provider_new.dart';
 import '../models/product.dart';
 import '../widgets/product_grid_widget.dart';
 import 'product_detail_api_screen.dart';
+import 'cart_screen_new.dart';
 
 class ProductTab extends StatefulWidget {
   const ProductTab({super.key});
@@ -65,40 +67,98 @@ class _ProductTabState extends State<ProductTab>
     super.build(context); // Required for AutomaticKeepAliveClientMixin
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Sản phẩm'),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(60),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Tìm kiếm sản phẩm...',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() {
-                            _searchQuery = '';
-                          });
-                        },
-                      )
-                    : null,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+        toolbarHeight: 70,
+        automaticallyImplyLeading: false,
+        title: Row(
+          children: [
+            // Search bar
+            Expanded(
+              child: Container(
+                height: 45,
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(25),
                 ),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Tìm kiếm sản phẩm...',
+                    hintStyle: TextStyle(color: Colors.grey[600], fontSize: 14),
+                    prefixIcon: Icon(Icons.search, color: Colors.grey[600], size: 22),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: Icon(Icons.clear, color: Colors.grey[600], size: 20),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() {
+                                _searchQuery = '';
+                              });
+                            },
+                          )
+                        : null,
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
+                  onChanged: (value) {
+                    setState(() {
+                      _searchQuery = value;
+                    });
+                  },
+                ),
               ),
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value;
-                });
+            ),
+            const SizedBox(width: 12),
+            // Cart icon with badge
+            Consumer<CartApiProvider>(
+              builder: (context, cartProvider, child) {
+                return Stack(
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.blue,
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                        icon: const Icon(Icons.shopping_cart, color: Colors.white),
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const CartScreenNew(),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    if (cartProvider.itemCount > 0)
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 18,
+                            minHeight: 18,
+                          ),
+                          child: Text(
+                            '${cartProvider.itemCount}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                  ],
+                );
               },
             ),
-          ),
+          ],
         ),
       ),
       body: Consumer<api_providers.ProductApiProvider>(

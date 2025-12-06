@@ -83,7 +83,8 @@ class ChatProvider with ChangeNotifier {
         lowerContent.contains('mua sách') ||
         lowerContent.contains('đặt mua') ||
         lowerContent.contains('mua')) {
-      _startSmartOrderCreation(content, productProvider);
+      _startSmartOrderCreation(content, productProvider, 
+          userEmail: userEmail, orderProvider: orderProvider);
       return;
     }
 
@@ -128,9 +129,9 @@ class ChatProvider with ChangeNotifier {
   }
 
   Future<void> _startSmartOrderCreation(String userMessage,
-      api_providers.ProductApiProvider? productProvider) async {
+      api_providers.ProductApiProvider? productProvider,
+      {String? userEmail, OrderProvider? orderProvider}) async {
     _isCreatingOrder = true;
-    _orderStep = 1;
     _selectedProducts.clear();
 
     _setLoading(true);
@@ -145,18 +146,113 @@ class ChatProvider with ChangeNotifier {
         _selectedProducts = parsedProducts;
         _addBotMessage('✅ Mình hiểu rồi! Bạn muốn đặt:\n\n'
             '${_formatSelectedProducts()}\n\n'
-            'Để hoàn tất, cho mình biết:\n'
-            '📝 Họ tên của bạn:');
+            '🚀 Đang tạo đơn hàng cho bạn...');
+        
+        // Tạo đơn hàng trực tiếp không cần nhập thông tin
+        await _createOrderDirectly(orderProvider);
       } else {
-        _addBotMessage('🛒 OK! Bắt đầu đặt hàng nhé.\n\n'
-            '📝 Họ tên của bạn:');
+        _addBotMessage('❌ Mình không tìm thấy sản phẩm nào phù hợp.\n\n'
+            '� Hãy thử nói rõ hơn, ví dụ:\n'
+            '• "Mua Đắc Nhân Tâm 2 cuốn"\n'
+            '• "Đặt sách Nhà Giả Kim"\n'
+            '• "Mua 3 cuốn Tuổi Trẻ Đáng Giá Bao Nhiêu"');
+        _resetOrderState();
       }
     } catch (e) {
-      _addBotMessage('🛒 Bắt đầu tạo đơn hàng!\n\n'
-          '📝 Họ tên của bạn:');
+      print('❌ Error in _startSmartOrderCreation: $e');
+      _addBotMessage('❌ Có lỗi xảy ra. Vui lòng thử lại!');
+      _resetOrderState();
     } finally {
       _setLoading(false);
       notifyListeners();
+    }
+  }
+  
+  /// Tạo đơn hàng trực tiếp không cần nhập thông tin - DÙNG API CHATBOT KHÔNG CẦN AUTH
+  Future<void> _createOrderDirectly(OrderProvider? orderProvider) async {
+    if (_userId == null) {
+      _addBotMessage('❌ Bạn cần đăng nhập để đặt hàng!');
+      _resetOrderState();
+      return;
+    }
+    
+    if (_selectedProducts.isEmpty) {
+      _addBotMessage('❌ Chưa có sản phẩm nào được chọn!');
+      _resetOrderState();
+      return;
+    }
+    
+    _setLoading(true);
+    
+    try {
+      print('🤖 ========== CREATING CHATBOT ORDER ==========');
+      print('👤 User ID: $_userId');
+      print('📚 Products: ${_selectedProducts.length} items');
+      
+      // Tạo đơn hàng cho từng sản phẩm (dùng API chatbot không cần auth)
+      final List<Map<String, dynamic>> createdOrders = [];
+      
+      for (var i = 0; i < _selectedProducts.length; i++) {
+        final product = _selectedProducts[i];
+        final productId = product['id'] as int;
+        final quantity = product['quantity'] as int;
+        final productName = product['name'] as String;
+        
+        print('📦 Creating order for: Product #$productId "$productName" x$quantity');
+        
+        final orderResult = await ApiService.createChatbotOrder(
+          userId: _userId!,
+          bookId: productId,
+          quantity: quantity,
+        );
+        
+        if (orderResult != null && orderResult['success'] == true) {
+          createdOrders.add(orderResult);
+          print('✅ Order created: ${orderResult['order_number']}');
+        } else {
+          throw Exception('Không thể tạo đơn hàng cho "$productName"');
+        }
+      }
+      
+      print('✅ All orders created successfully!');
+      
+      // Calculate total for display
+      int totalAmount = 0;
+      for (var product in _selectedProducts) {
+        final price = (product['price'] as int?) ?? 0;
+        final quantity = (product['quantity'] as int?) ?? 1;
+        totalAmount += price * quantity;
+      }
+      
+      // Build order summary
+      final orderSummary = StringBuffer();
+      orderSummary.writeln('🎉 Đặt hàng thành công!\n');
+      
+      for (var order in createdOrders) {
+        orderSummary.writeln('📋 Mã đơn: #${order['order_number']}');
+        orderSummary.writeln('   📚 ${order['book_title']} x${order['quantity']}');
+        orderSummary.writeln('   💰 ${order['total_amount']}đ\n');
+      }
+      
+      orderSummary.writeln('📦 Đơn hàng sẽ được giao đến địa chỉ mặc định.');
+      orderSummary.writeln('💳 Thanh toán: COD (khi nhận hàng)\n');
+      orderSummary.writeln('Cảm ơn bạn đã mua hàng! 🙏');
+      
+      _addBotMessage(orderSummary.toString());
+      
+      // Reload orders if provider available
+      if (orderProvider != null) {
+        print('🔄 Reloading user orders...');
+        await orderProvider.loadUserOrders(userId: _userId!);
+      }
+      
+    } catch (e) {
+      print('❌ Error creating chatbot order: $e');
+      _addBotMessage('❌ Có lỗi xảy ra:\n${e.toString()}\n\n'
+          'Vui lòng thử lại hoặc đặt hàng qua giỏ hàng! 🛒');
+    } finally {
+      _setLoading(false);
+      _resetOrderState();
     }
   }
 
@@ -188,6 +284,11 @@ class ChatProvider with ChangeNotifier {
           quantity = int.tryParse(matches.first.group(1) ?? '1') ?? 1;
         }
 
+        print('📦 Product found: ${product.name}');
+        print('   Original price: ${product.price}');
+        print('   Sale: ${product.sale}%');
+        print('   Real price (after discount): ${product.realPrice}');
+        
         result.add({
           'id': product.id,
           'name': product.name,
@@ -292,6 +393,7 @@ Nếu không tìm thấy: {"books":[]}
       final subtotal = price * quantity;
       total += subtotal;
 
+      // realPrice đã là giá sau giảm (đơn vị: nghìn đồng)
       buffer.writeln('• ${product['name']} x$quantity - ${subtotal}k');
     }
 
@@ -553,7 +655,12 @@ Nếu không tìm thấy: {"books":[]}
             '📦 Product ${i + 1}: ID=${product['id']}, Name="${product['name']}", Qty=${product['quantity']}, Price=${product['price']}');
       }
 
-      // Step 1: Add all products to cart
+      // Step 1: Refresh token trước khi tạo đơn hàng
+      print('🔄 Refreshing token before creating order...');
+      final tokenRefreshed = await ApiService.refreshAccessToken();
+      print('🔄 Token refresh result: $tokenRefreshed');
+      
+      // Step 2: Add all products to cart
       for (var product in _selectedProducts) {
         final productId = product['id'] as int;
         final quantity = product['quantity'] as int;
@@ -562,25 +669,26 @@ Nếu không tìm thấy: {"books":[]}
         print(
             '➕ Adding to cart: Product #$productId "$productName" x$quantity');
 
-        try {
-          final cartResult = await ApiService.addToCart(
-            userId: _userId!,
-            bookId: productId,
-            quantity: quantity,
-          );
+        final cartResult = await ApiService.addToCart(
+          userId: _userId!,
+          bookId: productId,
+          quantity: quantity,
+        );
 
-          if (cartResult == null) {
-            throw Exception(
-                'API không trả về kết quả khi thêm sản phẩm "$productName" (ID: $productId)');
-          }
-
-          print('✅ Added to cart successfully: $cartResult');
-        } catch (e) {
-          print('❌ Error adding product #$productId to cart: $e');
+        if (cartResult == null) {
           throw Exception(
-              'Không thể thêm sản phẩm "$productName" vào giỏ hàng.\n'
-              'Chi tiết: ${e.toString()}');
+              'API không trả về kết quả khi thêm sản phẩm "$productName" (ID: $productId)');
         }
+        
+        // Check for error in response
+        if (cartResult.containsKey('error')) {
+          final errorType = cartResult['error'];
+          final errorMessage = cartResult['message'] ?? 'Lỗi không xác định';
+          print('❌ Cart error: $errorType - $errorMessage');
+          throw Exception(errorMessage);
+        }
+
+        print('✅ Added to cart successfully: $cartResult');
       }
 
       print('🛍️ Creating order from cart...');
@@ -593,44 +701,56 @@ Nếu không tìm thấy: {"books":[]}
             'Đơn hàng từ chatbot AI\nKhách hàng: $_customerName\nSĐT: $_customerPhone\nĐịa chỉ: $_customerAddress',
       );
 
-      if (orderResult != null) {
-        print('✅ Order created successfully!');
-        print('📦 Order data: $orderResult');
-
-        // Calculate total for display
-        int totalAmount = 0;
-        for (var product in _selectedProducts) {
-          final price = (product['price'] as int?) ?? 0;
-          final quantity = (product['quantity'] as int?) ?? 1;
-          totalAmount += price * quantity;
-        }
-
-        final orderNumber = orderResult['order_number'] ?? 'N/A';
-        final orderId = orderResult['id'] ?? 0;
-
-        _addBotMessage('🎉 Đơn hàng đã được tạo thành công!\n\n'
-            '📋 Mã đơn: #$orderNumber\n'
-            '🆔 ID: $orderId\n'
-            '📚 Sản phẩm: ${_selectedProducts.length} cuốn sách\n'
-            '💰 Tổng tiền: ${totalAmount}k\n'
-            '📍 Địa chỉ: $_customerAddress\n'
-            '📞 SĐT: $_customerPhone\n\n'
-            'Chúng tôi sẽ liên hệ với bạn sớm nhất! 🚚\n\n'
-            'Cần giúp gì thêm không? 😊');
-
-        // Reload orders if provider available
-        if (orderProvider != null && _userId != null) {
-          print('🔄 Reloading user orders...');
-          await orderProvider.loadUserOrders(userId: _userId!);
-        }
-      } else {
+      // Check if order was created successfully
+      if (orderResult == null) {
         throw Exception('API không trả về dữ liệu đơn hàng');
+      }
+      
+      print('✅ Order created successfully!');
+      print('📦 Order data: $orderResult');
+
+      // Calculate total for display
+      int totalAmount = 0;
+      for (var product in _selectedProducts) {
+        final price = (product['price'] as int?) ?? 0;
+        final quantity = (product['quantity'] as int?) ?? 1;
+        totalAmount += price * quantity;
+      }
+
+      final orderNumber = orderResult['order_number'] ?? 'N/A';
+      final orderId = orderResult['id'] ?? 0;
+
+      _addBotMessage('🎉 Đơn hàng đã được tạo thành công!\n\n'
+          '📋 Mã đơn: #$orderNumber\n'
+          '🆔 ID: $orderId\n'
+          '📚 Sản phẩm: ${_selectedProducts.length} cuốn sách\n'
+          '💰 Tổng tiền: ${totalAmount}k\n'
+          '📍 Địa chỉ: $_customerAddress\n'
+          '📞 SĐT: $_customerPhone\n\n'
+          'Chúng tôi sẽ liên hệ với bạn sớm nhất! 🚚\n\n'
+          'Cần giúp gì thêm không? 😊');
+
+      // Reload orders if provider available
+      if (orderProvider != null && _userId != null) {
+        print('🔄 Reloading user orders...');
+        await orderProvider.loadUserOrders(userId: _userId!);
       }
     } catch (e) {
       print('❌ Error creating order: $e');
-      _addBotMessage('❌ Có lỗi xảy ra khi tạo đơn hàng:\n'
-          '${e.toString()}\n\n'
-          'Vui lòng thử lại sau hoặc liên hệ với chúng tôi! 📞');
+      
+      // Check if it's an auth error
+      final errorMsg = e.toString().toLowerCase();
+      if (errorMsg.contains('phiên đăng nhập') || 
+          errorMsg.contains('unauthorized') ||
+          errorMsg.contains('hết hạn')) {
+        _addBotMessage('❌ Phiên đăng nhập đã hết hạn!\n\n'
+            '🔐 Vui lòng đăng xuất và đăng nhập lại để tiếp tục.\n\n'
+            'Xin lỗi vì sự bất tiện này! 🙏');
+      } else {
+        _addBotMessage('❌ Có lỗi xảy ra khi tạo đơn hàng:\n'
+            '${e.toString()}\n\n'
+            'Vui lòng thử lại sau hoặc liên hệ với chúng tôi! 📞');
+      }
     } finally {
       _setLoading(false);
       _resetOrderState();

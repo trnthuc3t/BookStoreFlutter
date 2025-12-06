@@ -83,29 +83,6 @@ class AuthorsGridWidget extends StatelessWidget {
                   textAlign: TextAlign.center,
                 ),
               ),
-              const SizedBox(height: 2),
-              
-              // Book count with icon
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.menu_book,
-                    size: 12,
-                    color: Colors.grey[600],
-                  ),
-                  const SizedBox(width: 3),
-                  Text(
-                    '${author.bookCount}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
             ],
           ),
         ),

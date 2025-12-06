@@ -44,3 +44,4 @@ app.*.map.json
 
 # Secret configuration files - DO NOT COMMIT
 lib/constants/config_secret.dart
+lib/config/gemini_config.dart

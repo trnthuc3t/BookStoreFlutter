@@ -8,7 +8,7 @@ import '../models/category.dart';
 import '../models/voucher.dart';
 import '../models/feedback.dart';
 import '../constants/app_constants.dart';
-import '../constants/config.dart';
+import '../config/gemini_config.dart';
 
 class GeminiService {
   static GeminiService? _instance;
@@ -17,16 +17,24 @@ class GeminiService {
   GeminiService._();
 
   final http.Client _client = http.Client();
+  // Using gemini-2.5-flash (latest stable model)
   static const String _baseUrl =
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent';
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
   Future<void> initialize() async {
     // Check if API key is configured
-    if (Config.geminiApiKey.isEmpty ||
-        Config.geminiApiKey == 'YOUR_GEMINI_API_KEY_HERE') {
+    if (GeminiConfig.apiKey.isEmpty) {
       throw Exception(
-          'Gemini API key is not configured. Please update Config.geminiApiKey');
+          'Gemini API key is not configured. Please update lib/config/gemini_config.dart');
     }
+    
+    // Additional validation: API key should start with "AIza"
+    if (!GeminiConfig.apiKey.startsWith('AIza')) {
+      throw Exception(
+          'Invalid Gemini API key format. API key should start with "AIza"');
+    }
+    
+    print('✅ Gemini API key validated successfully');
   }
 
   Future<String> generateResponse(
@@ -356,6 +364,10 @@ $userMessage
 
   Future<String> _generateContent(String prompt) async {
     final url = Uri.parse(_baseUrl);
+    
+    print('🤖 Calling Gemini API...');
+    print('📍 URL: $_baseUrl');
+    print('🔑 API Key (first 20 chars): ${GeminiConfig.apiKey.substring(0, 20)}...');
 
     final requestBody = {
       'contents': [
@@ -367,58 +379,70 @@ $userMessage
       ]
     };
 
-    final response = await _client.post(
-      url,
-      headers: {
-        'x-goog-api-key': Config.geminiApiKey,
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode(requestBody),
-    );
+    try {
+      final response = await _client.post(
+        url,
+        headers: {
+          'x-goog-api-key': GeminiConfig.apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(requestBody),
+      ).timeout(const Duration(seconds: 30));
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      final candidates = data['candidates'];
+      print('📡 Response status: ${response.statusCode}');
+      print('📦 Response body: ${response.body.substring(0, response.body.length > 500 ? 500 : response.body.length)}...');
 
-      if (candidates != null && candidates.isNotEmpty) {
-        final content = candidates[0]['content'];
-        final parts = content['parts'];
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final candidates = data['candidates'];
 
-        if (parts != null && parts.isNotEmpty) {
-          return parts[0]['text'] ?? '';
+        if (candidates != null && candidates.isNotEmpty) {
+          final content = candidates[0]['content'];
+          final parts = content['parts'];
+
+          if (parts != null && parts.isNotEmpty) {
+            print('✅ Gemini response received successfully');
+            return parts[0]['text'] ?? '';
+          }
         }
+
+        throw Exception('Empty response from Gemini API');
       }
 
-      throw Exception('Empty response from Gemini API');
+      // Log error details
+      print('❌ API Error ${response.statusCode}');
+      print('❌ Error body: ${response.body}');
+      throw Exception('API Error ${response.statusCode}: ${response.body}');
+    } catch (e) {
+      print('❌ Exception calling Gemini: $e');
+      rethrow;
     }
-
-    throw Exception('API Error ${response.statusCode}: ${response.body}');
   }
 
   String _getErrorMessage(dynamic error) {
     final errorStr = error.toString().toLowerCase();
 
     if (errorStr.contains('api key not configured')) {
-      return '❌ Chưa cấu hình API key!\n\nVui lòng:\n1. Vào https://aistudio.google.com/app/apikey\n2. Tạo key mới\n3. Cập nhật vào lib/constants/config.dart';
+      return '❌ Chưa cấu hình API key!\n\nVui lòng:\n1. Vào https://aistudio.google.com/app/apikey\n2. Tạo key mới\n3. Cập nhật vào lib/config/gemini_config.dart';
     } else if (errorStr.contains('api_key_invalid') ||
         errorStr.contains('api key not valid') ||
         errorStr.contains('invalid_argument') ||
         errorStr.contains('400')) {
-      return '❌ API key không hợp lệ!\n\nVui lòng:\n1. Vào https://aistudio.google.com/app/apikey\n2. Tạo key mới\n3. Cập nhật vào lib/constants/config.dart';
+      return '❌ API key không hợp lệ!\n\nVui lòng:\n1. Kiểm tra API key tại https://aistudio.google.com/app/apikey\n2. Tạo key mới nếu cần\n3. Cập nhật vào lib/config/gemini_config.dart\n\n💡 Lưu ý: API key phải bắt đầu bằng "AIza..."';
     } else if (errorStr.contains('resource_exhausted') ||
         errorStr.contains('429')) {
-      return '⏰ Vượt giới hạn requests.\n\nĐợi 1 phút nhé!';
+      return '⏰ Vượt giới hạn requests.\n\n💡 Giải pháp:\n• Đợi 1-2 phút rồi thử lại\n• Hoặc tạo API key mới tại:\n  https://aistudio.google.com/app/apikey';
     } else if (errorStr.contains('permission_denied') ||
         errorStr.contains('403')) {
-      return '🔒 API key không có quyền.\n\nKiểm tra lại cấu hình API key.';
+      return '🔒 API key không có quyền.\n\nKiểm tra:\n1. API key có đúng không?\n2. Gemini API đã được enable chưa?\n3. Tạo key mới tại: https://aistudio.google.com/app/apikey';
     } else if (errorStr.contains('timeout') || errorStr.contains('timed out')) {
-      return '⏱️ Timeout. Thử lại nhé!';
+      return '⏱️ Timeout. Mạng chậm hoặc Gemini đang quá tải.\n\nThử lại nhé!';
     } else if (errorStr.contains('unable to resolve host') ||
         errorStr.contains('no internet') ||
         errorStr.contains('network')) {
       return '📡 Không có mạng. Kiểm tra WiFi/Data!';
     } else {
-      return '⚠️ Lỗi: ${error.toString()}\n\nThử lại nhé!';
+      return '⚠️ Lỗi: ${error.toString()}\n\n💡 Kiểm tra:\n• API key trong lib/config/gemini_config.dart\n• Kết nối mạng\n• Thử lại sau 1 phút';
     }
   }
 

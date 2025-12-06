@@ -78,11 +78,21 @@ class ApiService {
           .timeout(const Duration(seconds: 12));
 
       if (response.statusCode == 200) {
+        print('✅ Login successful! Parsing response...');
         final data = jsonDecode(response.body) as Map<String, dynamic>;
+        print('✅ Response keys: ${data.keys.join(', ')}');
+        
+        // Store access token
         await _storeToken(data['access_token']);
+        print('✅ Access token stored');
+        
         // Store refresh token if available
         if (data.containsKey('refresh_token')) {
+          print('✅ Refresh token found in response!');
           await _storeRefreshToken(data['refresh_token']);
+          print('✅ Refresh token stored successfully');
+        } else {
+          print('⚠️ WARNING: No refresh_token in login response!');
         }
         return data;
       }
@@ -146,11 +156,12 @@ class ApiService {
         return false;
       }
 
-      print('🔄 Refreshing access token...');
-      print('   Refresh token (first 30 chars): ${refreshToken.substring(0, min(30, refreshToken.length))}...');
+      print('🔄 ========== REFRESHING ACCESS TOKEN ==========');
+      print('🔄 Refresh token (first 30 chars): ${refreshToken.substring(0, min<int>(30, refreshToken.length))}...');
+      print('🔄 Refresh token length: ${refreshToken.length}');
       
       final url = '${ApiConstants.refreshTokenUrl}?refresh_token=$refreshToken';
-      print('   POST $url');
+      print('🔄 POST $url');
       
       final response = await http.post(
         Uri.parse(url),
@@ -158,26 +169,35 @@ class ApiService {
       ).timeout(
         const Duration(seconds: 10),
         onTimeout: () {
-          print('❌ Refresh token request timeout');
+          print('❌ Refresh token request timeout after 10 seconds');
           throw TimeoutException('Refresh timeout');
         },
       );
 
-      print('   Response status: ${response.statusCode}');
-      print('   Response body: ${response.body}');
+      print('🔄 Response status: ${response.statusCode}');
+      print('🔄 Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         if (data.containsKey('access_token')) {
-          await _storeToken(data['access_token']);
-          print('✅ Access token refreshed successfully');
+          final newAccessToken = data['access_token'] as String;
+          await _storeToken(newAccessToken);
+          print('✅ Access token refreshed successfully!');
+          print('✅ New token (first 30 chars): ${newAccessToken.substring(0, min<int>(30, newAccessToken.length))}...');
+          print('🔄 ========== REFRESH COMPLETE ==========');
           return true;
         } else {
           print('❌ Response missing access_token field');
+          print('❌ Available keys: ${data.keys.join(", ")}');
           return false;
         }
+      } else if (response.statusCode == 401) {
+        print('❌ Refresh token expired or invalid - User needs to login again');
+        print('❌ Response: ${response.body}');
+        return false;
       } else {
-        print('❌ Failed to refresh token: ${response.statusCode} - ${response.body}');
+        print('❌ Failed to refresh token: ${response.statusCode}');
+        print('❌ Response body: ${response.body}');
         return false;
       }
     } on TimeoutException catch (e) {
@@ -693,23 +713,32 @@ class ApiService {
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else if (response.statusCode == 401) {
-        print('❌ Unauthorized - Token may be invalid or expired');
+        print('❌ ========== 401 UNAUTHORIZED IN ADD TO CART ==========');
+        print('❌ Token may be invalid or expired');
+        print('❌ isRetry flag: $isRetry');
         
         // Try to refresh token and retry once
         if (!isRetry) {
-          print('🔄 Attempting to refresh token and retry...');
+          print('🔄 Will attempt to refresh token...');
           final refreshed = await refreshAccessToken();
+          print('🔄 Refresh result: $refreshed');
+          
           if (refreshed) {
-            print('✅ Token refreshed, retrying add to cart...');
+            print('✅ Token refreshed successfully, retrying add to cart...');
             return await addToCart(
               userId: userId,
               bookId: bookId,
               quantity: quantity,
               isRetry: true,
             );
+          } else {
+            print('❌ Token refresh FAILED');
           }
+        } else {
+          print('❌ Already retried once, giving up');
         }
         
+        print('❌ ========== RETURNING UNAUTHORIZED ERROR ==========');
         return {'error': 'unauthorized', 'message': 'Phiên đăng nhập hết hạn, vui lòng đăng nhập lại'};
       } else if (response.statusCode == 403) {
         print('❌ Forbidden - User not authorized to modify this cart');
@@ -1578,6 +1607,7 @@ class ApiService {
     String paymentMethod = 'COD',
     String? notes,
     String? voucherCode,
+    bool isRetry = false,
   }) async {
     try {
       print('🛍️ Creating simple order for user $userId...');
@@ -1603,15 +1633,69 @@ class ApiService {
         final data = jsonDecode(response.body);
         print('✅ Order created successfully: ${data['order_number']}');
         return data;
+      } else if (response.statusCode == 401) {
+        print('❌ ========== 401 UNAUTHORIZED IN CREATE ORDER ==========');
+        print('❌ Token may be expired');
+        print('❌ isRetry flag: $isRetry');
+        
+        // Try to refresh token and retry once
+        if (!isRetry) {
+          print('🔄 Will attempt to refresh token...');
+          final refreshed = await refreshAccessToken();
+          print('🔄 Refresh result: $refreshed');
+          
+          if (refreshed) {
+            print('✅ Token refreshed successfully, retrying create order...');
+            return await createSimpleOrder(
+              userId: userId,
+              paymentMethod: paymentMethod,
+              notes: notes,
+              voucherCode: voucherCode,
+              isRetry: true,
+            );
+          } else {
+            print('❌ Token refresh FAILED');
+          }
+        } else {
+          print('❌ Already retried once, giving up');
+        }
+        
+        print('❌ ========== THROWING UNAUTHORIZED EXCEPTION ==========');
+        throw Exception('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.');
+      } else if (response.statusCode == 400) {
+        // Parse error message from backend
+        try {
+          final errorData = jsonDecode(response.body);
+          final errorDetail = errorData['detail'] ?? 'Lỗi không xác định';
+          print('❌ Bad request: $errorDetail');
+          
+          if (errorDetail.toString().toLowerCase().contains('cart is empty')) {
+            throw Exception('Giỏ hàng trống. Vui lòng thêm sản phẩm vào giỏ hàng trước.');
+          } else if (errorDetail.toString().toLowerCase().contains('voucher')) {
+            throw Exception('Lỗi voucher: $errorDetail');
+          } else {
+            throw Exception(errorDetail);
+          }
+        } catch (e) {
+          if (e is Exception) rethrow;
+          throw Exception('Yêu cầu không hợp lệ: ${response.body}');
+        }
+      } else if (response.statusCode == 403) {
+        throw Exception('Bạn không có quyền tạo đơn hàng này.');
+      } else if (response.statusCode == 500) {
+        throw Exception('Lỗi server. Vui lòng thử lại sau.');
       } else {
-        print(
-            '❌ Create order error: ${response.statusCode} - ${response.body}');
-        return null;
+        print('❌ Create order error: ${response.statusCode} - ${response.body}');
+        throw Exception('Lỗi tạo đơn hàng (${response.statusCode}). Vui lòng thử lại.');
       }
     } catch (e, stackTrace) {
       print('❌ Create order error: $e');
       print('Stack trace: $stackTrace');
-      return null;
+      // Rethrow to let caller handle the error with specific message
+      if (e is Exception) {
+        rethrow;
+      }
+      throw Exception('Lỗi không xác định: ${e.toString()}');
     }
   }
 
@@ -1657,8 +1741,17 @@ class ApiService {
   }
 
   /// Get user orders
-  static Future<List<dynamic>> getUserOrders({required int userId}) async {
+  static Future<List<dynamic>> getUserOrders({
+    required int userId,
+    bool isRetry = false,
+  }) async {
     try {
+      // Refresh token trước khi gọi API
+      if (!isRetry) {
+        print('🔄 Refreshing token before getting orders...');
+        await refreshAccessToken();
+      }
+      
       print('📦 Getting orders for user $userId...');
       final response = await http.get(
         Uri.parse('${ApiConstants.baseUrl}/api/orders/$userId'),
@@ -1666,12 +1759,20 @@ class ApiService {
       );
 
       print('📦 Orders response status: ${response.statusCode}');
-      print('📦 Orders response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         print('📦 Orders data: ${data['orders']?.length ?? 0} orders');
         return data['orders'] ?? [];
+      } else if (response.statusCode == 401 && !isRetry) {
+        print('❌ Unauthorized - Attempting to refresh token again...');
+        final refreshed = await refreshAccessToken();
+        if (refreshed) {
+          print('✅ Token refreshed, retrying get orders...');
+          return await getUserOrders(userId: userId, isRetry: true);
+        }
+        print('❌ Failed to refresh token');
+        return [];
       } else {
         print('❌ Orders error: ${response.statusCode} - ${response.body}');
       }
@@ -1684,9 +1785,17 @@ class ApiService {
   }
 
   /// Get order detail by order ID
-  static Future<Map<String, dynamic>?> getOrderDetail(
-      {required int orderId}) async {
+  static Future<Map<String, dynamic>?> getOrderDetail({
+    required int orderId,
+    bool isRetry = false,
+  }) async {
     try {
+      // Refresh token trước khi gọi API
+      if (!isRetry) {
+        print('🔄 Refreshing token before getting order detail...');
+        await refreshAccessToken();
+      }
+      
       print('📦 Getting order detail for order #$orderId...');
       final response = await http.get(
         Uri.parse('${ApiConstants.baseUrl}/api/orders/$orderId/details'),
@@ -1694,15 +1803,22 @@ class ApiService {
       );
 
       print('📦 Order detail response status: ${response.statusCode}');
-      print('📦 Order detail response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         print('✅ Order detail loaded successfully');
         return data;
+      } else if (response.statusCode == 401 && !isRetry) {
+        print('❌ Unauthorized - Attempting to refresh token again...');
+        final refreshed = await refreshAccessToken();
+        if (refreshed) {
+          print('✅ Token refreshed, retrying get order detail...');
+          return await getOrderDetail(orderId: orderId, isRetry: true);
+        }
+        print('❌ Failed to refresh token');
+        return null;
       } else {
-        print(
-            '❌ Order detail error: ${response.statusCode} - ${response.body}');
+        print('❌ Order detail error: ${response.statusCode} - ${response.body}');
       }
       return null;
     } catch (e, stackTrace) {
@@ -2003,6 +2119,169 @@ class ApiService {
     } catch (e) {
       print('❌ Get category statistics error: $e');
       return null;
+    }
+  }
+
+  // ========== CHATBOT ORDER APIs ==========
+  
+  /// Xóa toàn bộ giỏ hàng của user
+  static Future<bool> clearCart({required int userId}) async {
+    try {
+      print('🗑️ Clearing cart for user $userId...');
+      
+      // Lấy danh sách cart items từ getCart
+      final cartData = await getCart(userId);
+      if (cartData == null) {
+        print('✅ Cart already empty or error getting cart');
+        return true;
+      }
+      
+      final cartItems = cartData['items'] as List<dynamic>?;
+      if (cartItems == null || cartItems.isEmpty) {
+        print('✅ Cart already empty');
+        return true;
+      }
+      
+      // Xóa từng item
+      for (var item in cartItems) {
+        final itemId = item['id'];
+        if (itemId != null) {
+          await removeCartItem(itemId);
+        }
+      }
+      
+      print('✅ Cart cleared successfully');
+      return true;
+    } catch (e) {
+      print('❌ Clear cart error: $e');
+      return false;
+    }
+  }
+  
+  /// Thêm sản phẩm vào giỏ hàng (bypass token check, auto refresh)
+  static Future<Map<String, dynamic>?> addToCartDirect({
+    required int userId,
+    required int bookId,
+    required int quantity,
+  }) async {
+    // Refresh token trước khi gọi API
+    print('🔄 Refreshing token before add to cart...');
+    await refreshAccessToken();
+    
+    try {
+      final url = '${ApiConstants.cartUrl}?user_id=$userId&book_id=$bookId&quantity=$quantity';
+      print('🛒 POST $url');
+      
+      final response = await http.post(
+        Uri.parse(url),
+        headers: await _getHeaders(),
+      ).timeout(const Duration(seconds: 15));
+      
+      print('🛒 Response: ${response.statusCode} - ${response.body}');
+      
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else if (response.statusCode == 401) {
+        // Thử refresh token và retry
+        print('🔄 Got 401, refreshing token and retrying...');
+        final refreshed = await refreshAccessToken();
+        if (refreshed) {
+          final retryResponse = await http.post(
+            Uri.parse(url),
+            headers: await _getHeaders(),
+          ).timeout(const Duration(seconds: 15));
+          
+          if (retryResponse.statusCode == 200) {
+            return jsonDecode(retryResponse.body);
+          }
+        }
+        return {'error': 'unauthorized', 'message': 'Phiên đăng nhập hết hạn'};
+      }
+      
+      return {'error': 'failed', 'message': 'Lỗi ${response.statusCode}'};
+    } catch (e) {
+      print('❌ Add to cart direct error: $e');
+      return {'error': 'exception', 'message': e.toString()};
+    }
+  }
+  
+  /// Tạo đơn hàng trực tiếp (bypass token check, auto refresh)
+  static Future<Map<String, dynamic>?> createOrderDirect({
+    required int userId,
+    String paymentMethod = 'COD',
+  }) async {
+    // Refresh token trước khi gọi API
+    print('🔄 Refreshing token before create order...');
+    await refreshAccessToken();
+    
+    try {
+      final url = '${ApiConstants.baseUrl}/api/orders/simple?user_id=$userId&payment_method=$paymentMethod&notes=Đơn hàng từ chatbot';
+      print('🛍️ POST $url');
+      
+      final response = await http.post(
+        Uri.parse(url),
+        headers: await _getHeaders(),
+      ).timeout(const Duration(seconds: 20));
+      
+      print('🛍️ Response: ${response.statusCode} - ${response.body}');
+      
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else if (response.statusCode == 401) {
+        // Thử refresh token và retry
+        print('🔄 Got 401, refreshing token and retrying...');
+        final refreshed = await refreshAccessToken();
+        if (refreshed) {
+          final retryResponse = await http.post(
+            Uri.parse(url),
+            headers: await _getHeaders(),
+          ).timeout(const Duration(seconds: 20));
+          
+          if (retryResponse.statusCode == 200) {
+            return jsonDecode(retryResponse.body);
+          }
+        }
+        return null;
+      } else if (response.statusCode == 400) {
+        final errorData = jsonDecode(response.body);
+        final detail = errorData['detail'] ?? 'Lỗi không xác định';
+        throw Exception(detail);
+      }
+      
+      return null;
+    } catch (e) {
+      print('❌ Create order direct error: $e');
+      rethrow;
+    }
+  }
+  
+  /// Tạo đơn hàng từ chatbot - KHÔNG CẦN AUTH
+  static Future<Map<String, dynamic>?> createChatbotOrder({
+    required int userId,
+    required int bookId,
+    int quantity = 1,
+  }) async {
+    try {
+      final url = '${ApiConstants.baseUrl}/api/chatbot/order?user_id=$userId&book_id=$bookId&quantity=$quantity';
+      print('🤖 POST $url');
+      
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 20));
+      
+      print('🤖 Response: ${response.statusCode} - ${response.body}');
+      
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        final errorData = jsonDecode(response.body);
+        final detail = errorData['detail'] ?? 'Lỗi không xác định';
+        throw Exception(detail);
+      }
+    } catch (e) {
+      print('❌ Create chatbot order error: $e');
+      rethrow;
     }
   }
 }

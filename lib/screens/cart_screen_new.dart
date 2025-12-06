@@ -69,39 +69,28 @@ class _CartScreenNewState extends State<CartScreenNew> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade900,
+      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        elevation: 0,
+        backgroundColor: Colors.white,
+        elevation: 1,
+        iconTheme: const IconThemeData(color: Colors.black87),
         title: Row(
           children: [
-            Icon(Icons.shopping_cart, color: Colors.blue.shade400),
+            Icon(Icons.shopping_cart, color: Colors.blue.shade600),
             const SizedBox(width: 8),
             const Text(
               'Giỏ hàng',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: Colors.black87,
               ),
             ),
           ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
+            icon: const Icon(Icons.refresh, color: Colors.black87),
             onPressed: _refreshCart,
-          ),
-          Consumer<CartApiProvider>(
-            builder: (context, cartProvider, child) {
-              if (cartProvider.cartItems.isEmpty) return const SizedBox.shrink();
-              return TextButton(
-                onPressed: _clearCart,
-                child: const Text(
-                  'Xóa tất cả',
-                  style: TextStyle(color: Colors.red),
-                ),
-              );
-            },
           ),
         ],
       ),
@@ -155,25 +144,25 @@ class _CartScreenNewState extends State<CartScreenNew> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(Icons.shopping_cart_outlined,
-                    size: 100, color: Colors.grey.shade600),
+                    size: 100, color: Colors.grey.shade400),
                 const SizedBox(height: 16),
                 Text(
                   'Giỏ hàng trống',
                   style: TextStyle(
                     fontSize: 18,
-                    color: Colors.grey.shade400,
+                    color: Colors.grey.shade700,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'Hãy thêm sản phẩm vào giỏ hàng',
-                  style: TextStyle(color: Colors.grey.shade500),
+                  style: TextStyle(color: Colors.grey.shade600),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'Kéo xuống để làm mới',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
                 ),
               ],
             ),
@@ -195,12 +184,13 @@ class _CartScreenNewState extends State<CartScreenNew> {
     final isSelected = _selectedItems.contains(itemId);
 
     return Card(
-      color: const Color(0xFF212121),
+      color: Colors.white,
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade800),
+        side: BorderSide(color: Colors.grey.shade200),
       ),
+      elevation: 2,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Row(
@@ -240,8 +230,8 @@ class _CartScreenNewState extends State<CartScreenNew> {
                     return Container(
                       width: 60,
                       height: 80,
-                      color: Colors.grey.shade800,
-                      child: Icon(Icons.book, color: Colors.grey.shade600),
+                      color: Colors.grey.shade200,
+                      child: Icon(Icons.book, color: Colors.grey.shade400),
                     );
                   },
                 ),
@@ -251,10 +241,10 @@ class _CartScreenNewState extends State<CartScreenNew> {
                 width: 60,
                 height: 80,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade800,
+                  color: Colors.grey.shade200,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(Icons.book, color: Colors.grey.shade600),
+                child: Icon(Icons.book, color: Colors.grey.shade400),
               ),
             const SizedBox(width: 12),
             // Product info
@@ -267,7 +257,7 @@ class _CartScreenNewState extends State<CartScreenNew> {
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: Colors.black87,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -277,7 +267,7 @@ class _CartScreenNewState extends State<CartScreenNew> {
                     NumberFormat('#,##0đ').format(price),
                     style: TextStyle(
                       fontSize: 16,
-                      color: Colors.blue.shade300,
+                      color: Colors.blue.shade700,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -290,7 +280,7 @@ class _CartScreenNewState extends State<CartScreenNew> {
                             ? () => _updateQuantity(itemId, quantity - 1)
                             : null,
                         icon: const Icon(Icons.remove_circle_outline),
-                        color: quantity > 1 ? Colors.white : Colors.grey,
+                        color: quantity > 1 ? Colors.blue.shade700 : Colors.grey,
                         iconSize: 20,
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
@@ -299,22 +289,23 @@ class _CartScreenNewState extends State<CartScreenNew> {
                         margin: const EdgeInsets.symmetric(horizontal: 8),
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.grey.shade800,
+                          color: Colors.grey.shade100,
                           borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.grey.shade300),
                         ),
                         child: Text(
                           '$quantity',
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            color: Colors.black87,
                           ),
                         ),
                       ),
                       IconButton(
                         onPressed: () => _updateQuantity(itemId, quantity + 1),
                         icon: const Icon(Icons.add_circle_outline),
-                        color: Colors.white,
+                        color: Colors.blue.shade700,
                         iconSize: 20,
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
@@ -326,7 +317,7 @@ class _CartScreenNewState extends State<CartScreenNew> {
             ),
             // Delete button
             IconButton(
-              icon: Icon(Icons.delete, color: Colors.red.shade300, size: 20),
+              icon: Icon(Icons.delete, color: Colors.red.shade400, size: 20),
               onPressed: () => _removeItem(itemId),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
@@ -343,13 +334,13 @@ class _CartScreenNewState extends State<CartScreenNew> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF212121),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade800),
+          border: Border.all(color: Colors.grey.shade300),
         ),
         child: Row(
           children: [
-            Icon(Icons.payment, color: Colors.blue.shade400),
+            Icon(Icons.payment, color: Colors.blue.shade600),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -359,7 +350,7 @@ class _CartScreenNewState extends State<CartScreenNew> {
                     'Phương thức thanh toán',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: Colors.black87,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -367,14 +358,14 @@ class _CartScreenNewState extends State<CartScreenNew> {
                     _selectedPaymentMethod ?? 'Chọn phương thức thanh toán',
                     style: TextStyle(
                       color: _selectedPaymentMethod != null
-                          ? Colors.grey.shade400
-                          : Colors.grey.shade600,
+                          ? Colors.grey.shade700
+                          : Colors.grey.shade500,
                     ),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, color: Colors.grey.shade600),
+            Icon(Icons.chevron_right, color: Colors.grey.shade400),
           ],
         ),
       ),
@@ -387,13 +378,13 @@ class _CartScreenNewState extends State<CartScreenNew> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF212121),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade800),
+          border: Border.all(color: Colors.grey.shade300),
         ),
         child: Row(
           children: [
-            Icon(Icons.location_on, color: Colors.green.shade400),
+            Icon(Icons.location_on, color: Colors.green.shade600),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -403,7 +394,7 @@ class _CartScreenNewState extends State<CartScreenNew> {
                     'Địa chỉ giao hàng',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: Colors.black87,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -411,14 +402,14 @@ class _CartScreenNewState extends State<CartScreenNew> {
                     _selectedAddress ?? 'Chọn địa chỉ giao hàng',
                     style: TextStyle(
                       color: _selectedAddress != null
-                          ? Colors.grey.shade400
-                          : Colors.grey.shade600,
+                          ? Colors.grey.shade700
+                          : Colors.grey.shade500,
                     ),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, color: Colors.grey.shade600),
+            Icon(Icons.chevron_right, color: Colors.grey.shade400),
           ],
         ),
       ),
@@ -431,13 +422,13 @@ class _CartScreenNewState extends State<CartScreenNew> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF212121),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: _selectedVoucher != null ? Colors.orange : Colors.grey.shade800),
+          border: Border.all(color: _selectedVoucher != null ? Colors.orange : Colors.grey.shade300),
         ),
         child: Row(
           children: [
-            Icon(Icons.discount, color: _selectedVoucher != null ? Colors.orange.shade400 : Colors.purple.shade400),
+            Icon(Icons.discount, color: _selectedVoucher != null ? Colors.orange.shade600 : Colors.purple.shade600),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -447,7 +438,7 @@ class _CartScreenNewState extends State<CartScreenNew> {
                     'Mã giảm giá',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: Colors.black87,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -457,14 +448,14 @@ class _CartScreenNewState extends State<CartScreenNew> {
                         : 'Chọn voucher (không bắt buộc)',
                     style: TextStyle(
                       color: _selectedVoucher != null
-                          ? Colors.orange.shade300
-                          : Colors.grey.shade600,
+                          ? Colors.orange.shade700
+                          : Colors.grey.shade500,
                     ),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, color: Colors.grey.shade600),
+            Icon(Icons.chevron_right, color: Colors.grey.shade400),
           ],
         ),
       ),
@@ -490,14 +481,10 @@ class _CartScreenNewState extends State<CartScreenNew> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.grey.shade900, Colors.black],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
+        color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.5),
+            color: Colors.grey.withOpacity(0.3),
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),
@@ -513,11 +500,11 @@ class _CartScreenNewState extends State<CartScreenNew> {
               children: [
                 Text(
                   'Tạm tính:',
-                  style: TextStyle(color: Colors.grey.shade400),
+                  style: TextStyle(color: Colors.grey.shade600),
                 ),
                 Text(
                   NumberFormat('#,##0đ').format(selectedSubtotal),
-                  style: TextStyle(color: Colors.grey.shade300),
+                  style: TextStyle(color: Colors.grey.shade800),
                 ),
               ],
             ),
@@ -528,7 +515,7 @@ class _CartScreenNewState extends State<CartScreenNew> {
                 children: [
                   Text(
                     'Giảm giá:',
-                    style: TextStyle(color: Colors.grey.shade400),
+                    style: TextStyle(color: Colors.grey.shade600),
                   ),
                   Text(
                     '-${NumberFormat('#,##0đ').format(_voucherDiscount)}',
@@ -537,7 +524,7 @@ class _CartScreenNewState extends State<CartScreenNew> {
                 ],
               ),
             ],
-            Divider(color: Colors.grey.shade800, height: 24),
+            Divider(color: Colors.grey.shade300, height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -546,7 +533,7 @@ class _CartScreenNewState extends State<CartScreenNew> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: Colors.black87,
                   ),
                 ),
                 Text(
@@ -554,7 +541,7 @@ class _CartScreenNewState extends State<CartScreenNew> {
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Colors.blue.shade400,
+                    color: Colors.blue.shade700,
                   ),
                 ),
               ],
@@ -566,7 +553,7 @@ class _CartScreenNewState extends State<CartScreenNew> {
                 onPressed: canCheckout ? _checkout : null,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: canCheckout ? Colors.blue.shade700 : Colors.grey.shade700,
+                  backgroundColor: canCheckout ? Colors.blue.shade600 : Colors.grey.shade400,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -804,16 +791,16 @@ class _CartScreenNewState extends State<CartScreenNew> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: Colors.grey.shade900,
-        title: const Text('Xóa giỏ hàng', style: TextStyle(color: Colors.white)),
+        backgroundColor: Colors.white,
+        title: const Text('Xóa giỏ hàng', style: TextStyle(color: Colors.black87)),
         content: Text(
           'Bạn có chắc chắn muốn xóa tất cả sản phẩm?',
-          style: TextStyle(color: Colors.grey.shade300),
+          style: TextStyle(color: Colors.grey.shade700),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Hủy', style: TextStyle(color: Colors.grey.shade400)),
+            child: Text('Hủy', style: TextStyle(color: Colors.grey.shade600)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
