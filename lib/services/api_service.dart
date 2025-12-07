@@ -2005,6 +2005,114 @@ class ApiService {
     }
   }
 
+  /// Get book history (Admin only)
+  static Future<Map<String, dynamic>?> getBookHistory({
+    required int bookId,
+    bool isRetry = false,
+  }) async {
+    try {
+      print('📜 Getting book history for book #$bookId...');
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/api/admin/books/$bookId/history'),
+        headers: await _getHeaders(),
+      );
+
+      print('📜 Book history response status: ${response.statusCode}');
+      print('📜 Book history response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print(
+            '✅ Book history data decoded: ${data['history']?.length ?? 0} entries');
+        return data;
+      } else if (response.statusCode == 401 && !isRetry) {
+        print('❌ 401 Unauthorized - Attempting to refresh token...');
+        final refreshed = await refreshAccessToken();
+        if (refreshed) {
+          print('✅ Token refreshed, retrying get book history...');
+          return await getBookHistory(bookId: bookId, isRetry: true);
+        } else {
+          print('❌ Token refresh failed');
+          throw Exception('Không thể xác thực. Vui lòng đăng nhập lại.');
+        }
+      } else {
+        String errorMessage = 'Lỗi tải lịch sử sản phẩm';
+        try {
+          final errorData = jsonDecode(response.body);
+          if (errorData['detail'] != null) {
+            errorMessage = errorData['detail'];
+          }
+        } catch (_) {
+          errorMessage = 'Lỗi ${response.statusCode}: ${response.body}';
+        }
+        print('❌ Book history error: ${response.statusCode} - $errorMessage');
+        throw Exception(errorMessage);
+      }
+    } catch (e, stackTrace) {
+      print('❌ Get book history error: $e');
+      print('Stack trace: $stackTrace');
+      if (e is Exception) {
+        rethrow;
+      }
+      throw Exception('Lỗi kết nối: ${e.toString()}');
+    }
+  }
+
+  /// Get voucher history (Admin only)
+  static Future<Map<String, dynamic>?> getVoucherHistory({
+    required int voucherId,
+    bool isRetry = false,
+  }) async {
+    try {
+      print('📜 Getting voucher history for voucher #$voucherId...');
+      final response = await http.get(
+        Uri.parse(
+            '${ApiConstants.baseUrl}/api/admin/vouchers/$voucherId/history'),
+        headers: await _getHeaders(),
+      );
+
+      print('📜 Voucher history response status: ${response.statusCode}');
+      print('📜 Voucher history response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print(
+            '✅ Voucher history data decoded: ${data['history']?.length ?? 0} entries');
+        return data;
+      } else if (response.statusCode == 401 && !isRetry) {
+        print('❌ 401 Unauthorized - Attempting to refresh token...');
+        final refreshed = await refreshAccessToken();
+        if (refreshed) {
+          print('✅ Token refreshed, retrying get voucher history...');
+          return await getVoucherHistory(voucherId: voucherId, isRetry: true);
+        } else {
+          print('❌ Token refresh failed');
+          throw Exception('Không thể xác thực. Vui lòng đăng nhập lại.');
+        }
+      } else {
+        String errorMessage = 'Lỗi tải lịch sử voucher';
+        try {
+          final errorData = jsonDecode(response.body);
+          if (errorData['detail'] != null) {
+            errorMessage = errorData['detail'];
+          }
+        } catch (_) {
+          errorMessage = 'Lỗi ${response.statusCode}: ${response.body}';
+        }
+        print(
+            '❌ Voucher history error: ${response.statusCode} - $errorMessage');
+        throw Exception(errorMessage);
+      }
+    } catch (e, stackTrace) {
+      print('❌ Get voucher history error: $e');
+      print('Stack trace: $stackTrace');
+      if (e is Exception) {
+        rethrow;
+      }
+      throw Exception('Lỗi kết nối: ${e.toString()}');
+    }
+  }
+
   /// Cancel order (User)
   static Future<bool> cancelOrder({
     required int orderId,

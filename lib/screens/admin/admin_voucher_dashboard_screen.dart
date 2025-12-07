@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../../services/admin_api_service.dart';
+import '../../services/api_service.dart';
+import '../../providers/auth_provider_new.dart';
 import 'admin_add_voucher_screen_new.dart';
 
 class AdminVoucherDashboardScreen extends StatefulWidget {
@@ -234,6 +237,214 @@ class _AdminVoucherDashboardScreenState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Lỗi: $e')),
+        );
+      }
+    }
+  }
+
+  void _viewVoucherHistory(Map<String, dynamic> voucher) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final historyData =
+          await ApiService.getVoucherHistory(voucherId: voucher['id']);
+      if (mounted) {
+        Navigator.of(context).pop(); // Close loading dialog
+        if (historyData == null || historyData['history'] == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Không thể tải lịch sử'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+
+        final history = historyData['history'] as List;
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('📜 Lịch sử voucher: ${voucher['code']}'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: history.isEmpty
+                  ? const Text('Không có lịch sử thay đổi cho voucher này.')
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: history.length,
+                      itemBuilder: (context, index) {
+                        final entry = history[index];
+                        final creator = entry['created_by'];
+                        final formatter = DateFormat('dd/MM/yyyy HH:mm:ss');
+                        final dateTime = DateTime.parse(entry['created_at']);
+
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.edit,
+                                      size: 16,
+                                      color: Colors.blue.shade700,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        entry['field_label'] ??
+                                            entry['field_name'],
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.blue.shade700,
+                                        ),
+                                      ),
+                                    ),
+                                    Text(
+                                      formatter.format(dateTime),
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                if (entry['old_value'] != null ||
+                                    entry['new_value'] != null)
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      if (entry['old_value'] != null) ...[
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'Giá trị cũ:',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: Colors.grey.shade600,
+                                                ),
+                                              ),
+                                              Text(
+                                                entry['old_value'],
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.red.shade700,
+                                                  decoration: TextDecoration
+                                                      .lineThrough,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                      ],
+                                      if (entry['new_value'] != null)
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'Giá trị mới:',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: Colors.grey.shade600,
+                                                ),
+                                              ),
+                                              Text(
+                                                entry['new_value'],
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.green.shade700,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                if (entry['notes'] != null) ...[
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    entry['notes'],
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade800,
+                                    ),
+                                  ),
+                                ],
+                                if (creator != null) ...[
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Icon(Icons.person,
+                                          size: 14,
+                                          color: Colors.grey.shade600),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '${creator['first_name']} ${creator['last_name']} (${creator['username']})',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey.shade700,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: creator['role'] == 'admin'
+                                              ? Colors.orange.shade700
+                                              : Colors.blue.shade700,
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                        ),
+                                        child: Text(
+                                          creator['role'].toUpperCase(),
+                                          style: const TextStyle(
+                                              color: Colors.white, fontSize: 9),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Đóng'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop(); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Lỗi tải lịch sử voucher: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -859,6 +1070,23 @@ class _AdminVoucherDashboardScreenState
                           ],
                         ),
                       ),
+                      // Chỉ hiển thị "Lịch sử" cho admin
+                      if (Provider.of<AuthProvider>(context, listen: false)
+                              .currentUser
+                              ?.isAdmin ==
+                          true)
+                        PopupMenuItem(
+                          value: 'history',
+                          child: Row(
+                            children: [
+                              Icon(Icons.history,
+                                  color: Colors.orange.shade700, size: 20),
+                              const SizedBox(width: 8),
+                              const Text('Lịch sử',
+                                  style: TextStyle(color: Colors.black87)),
+                            ],
+                          ),
+                        ),
                       PopupMenuItem(
                         value: 'delete',
                         child: Row(
@@ -886,6 +1114,8 @@ class _AdminVoucherDashboardScreenState
                         }
                       } else if (value == 'toggle') {
                         _toggleVoucherStatus(voucher);
+                      } else if (value == 'history') {
+                        _viewVoucherHistory(voucher);
                       } else if (value == 'delete') {
                         final confirm = await showDialog<bool>(
                           context: context,

@@ -1503,6 +1503,214 @@ class _AdminProductsTabState extends State<AdminProductsTab> {
     }
   }
 
+  void _viewBookHistory(Map<String, dynamic> product) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final historyData =
+          await ApiService.getBookHistory(bookId: product['id']);
+      if (mounted) {
+        Navigator.of(context).pop(); // Close loading dialog
+        if (historyData == null || historyData['history'] == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Không thể tải lịch sử'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+
+        final history = historyData['history'] as List;
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('📜 Lịch sử sản phẩm: ${product['title']}'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: history.isEmpty
+                  ? const Text('Không có lịch sử thay đổi cho sản phẩm này.')
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: history.length,
+                      itemBuilder: (context, index) {
+                        final entry = history[index];
+                        final creator = entry['created_by'];
+                        final formatter = DateFormat('dd/MM/yyyy HH:mm:ss');
+                        final dateTime = DateTime.parse(entry['created_at']);
+
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.edit,
+                                      size: 16,
+                                      color: Colors.blue.shade700,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        entry['field_label'] ??
+                                            entry['field_name'],
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.blue.shade700,
+                                        ),
+                                      ),
+                                    ),
+                                    Text(
+                                      formatter.format(dateTime),
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                if (entry['old_value'] != null ||
+                                    entry['new_value'] != null)
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      if (entry['old_value'] != null) ...[
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'Giá trị cũ:',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: Colors.grey.shade600,
+                                                ),
+                                              ),
+                                              Text(
+                                                entry['old_value'],
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.red.shade700,
+                                                  decoration: TextDecoration
+                                                      .lineThrough,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                      ],
+                                      if (entry['new_value'] != null)
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'Giá trị mới:',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: Colors.grey.shade600,
+                                                ),
+                                              ),
+                                              Text(
+                                                entry['new_value'],
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.green.shade700,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                if (entry['notes'] != null) ...[
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    entry['notes'],
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade800,
+                                    ),
+                                  ),
+                                ],
+                                if (creator != null) ...[
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Icon(Icons.person,
+                                          size: 14,
+                                          color: Colors.grey.shade600),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '${creator['first_name']} ${creator['last_name']} (${creator['username']})',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey.shade700,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: creator['role'] == 'admin'
+                                              ? Colors.orange.shade700
+                                              : Colors.blue.shade700,
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                        ),
+                                        child: Text(
+                                          creator['role'].toUpperCase(),
+                                          style: const TextStyle(
+                                              color: Colors.white, fontSize: 9),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Đóng'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop(); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Lỗi tải lịch sử sản phẩm: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -1593,7 +1801,8 @@ class _AdminProductsTabState extends State<AdminProductsTab> {
                                 borderRadius: BorderRadius.circular(12)),
                             child: ListTile(
                               onTap: () => _editProduct(product),
-                              contentPadding: const EdgeInsets.all(12),
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
                               leading: CircleAvatar(
                                 backgroundColor: isActive
                                     ? Colors.blue.shade100
@@ -1609,7 +1818,7 @@ class _AdminProductsTabState extends State<AdminProductsTab> {
                               ),
                               title: Row(
                                 children: [
-                                  Expanded(
+                                  Flexible(
                                     child: Text(
                                       product['title'],
                                       maxLines: 2,
@@ -1622,19 +1831,20 @@ class _AdminProductsTabState extends State<AdminProductsTab> {
                                       ),
                                     ),
                                   ),
+                                  const SizedBox(width: 8),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 4),
+                                        horizontal: 6, vertical: 3),
                                     decoration: BoxDecoration(
                                       color:
                                           isActive ? Colors.green : Colors.red,
-                                      borderRadius: BorderRadius.circular(12),
+                                      borderRadius: BorderRadius.circular(10),
                                     ),
                                     child: Text(
                                       isActive ? 'Đang bán' : 'Ngừng bán',
                                       style: const TextStyle(
                                         color: Colors.white,
-                                        fontSize: 10,
+                                        fontSize: 9,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
@@ -1650,15 +1860,19 @@ class _AdminProductsTabState extends State<AdminProductsTab> {
                                       const Icon(Icons.attach_money,
                                           size: 14, color: Colors.grey),
                                       Text(
-                                          '${(product['price'] / 1000).toStringAsFixed(0)}k'),
-                                      const SizedBox(width: 16),
+                                        '${(product['price'] / 1000).toStringAsFixed(0)}k',
+                                      ),
+                                      const SizedBox(width: 12),
                                       Icon(Icons.inventory_2,
                                           size: 14, color: stockColor),
-                                      Text(
-                                        '${product['stock_quantity']} ($stockStatus)',
-                                        style: TextStyle(
-                                            color: stockColor,
-                                            fontWeight: FontWeight.bold),
+                                      Flexible(
+                                        child: Text(
+                                          '${product['stock_quantity']} ($stockStatus)',
+                                          style: TextStyle(
+                                              color: stockColor,
+                                              fontWeight: FontWeight.bold),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -1673,16 +1887,34 @@ class _AdminProductsTabState extends State<AdminProductsTab> {
                                   ),
                                 ],
                               ),
-                              trailing: Switch(
-                                value: isActive,
-                                activeColor: Colors.green,
-                                onChanged: (value) {
-                                  _toggleProductStatus(
-                                    product['id'],
-                                    isActive,
-                                    product['title'],
-                                  );
-                                },
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // Chỉ hiển thị nút "Lịch sử" cho admin
+                                  if (Provider.of<AuthProvider>(context,
+                                              listen: false)
+                                          .currentUser
+                                          ?.isAdmin ==
+                                      true)
+                                    IconButton(
+                                      icon: const Icon(Icons.history, size: 20),
+                                      color: Colors.orange,
+                                      tooltip: 'Lịch sử thay đổi',
+                                      onPressed: () =>
+                                          _viewBookHistory(product),
+                                    ),
+                                  Switch(
+                                    value: isActive,
+                                    activeColor: Colors.green,
+                                    onChanged: (value) {
+                                      _toggleProductStatus(
+                                        product['id'],
+                                        isActive,
+                                        product['title'],
+                                      );
+                                    },
+                                  ),
+                                ],
                               ),
                             ),
                           );
