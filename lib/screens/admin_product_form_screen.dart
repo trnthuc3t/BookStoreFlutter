@@ -25,6 +25,7 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
   late TextEditingController _priceController;
+  late TextEditingController _costPriceController;
   late TextEditingController _originalPriceController;
   late TextEditingController _discountPercentageController;
   late TextEditingController _stockController;
@@ -63,6 +64,8 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
         TextEditingController(text: product?['description'] ?? '');
     _priceController =
         TextEditingController(text: product?['price']?.toString() ?? '');
+    _costPriceController = TextEditingController(
+        text: product?['cost_price']?.toString() ?? '');
     _originalPriceController = TextEditingController(
         text: product?['original_price']?.toString() ?? '');
     _discountPercentageController = TextEditingController(
@@ -430,6 +433,7 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
     _titleController.dispose();
     _descriptionController.dispose();
     _priceController.dispose();
+    _costPriceController.dispose();
     _originalPriceController.dispose();
     _discountPercentageController.dispose();
     _stockController.dispose();
@@ -551,6 +555,7 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
       description: _descriptionController.text.trim(),
       isbn: null, // Auto-generated or optional
       price: double.tryParse(_priceController.text) ?? 0,
+      costPrice: double.tryParse(_costPriceController.text),
       originalPrice: double.tryParse(_originalPriceController.text),
       stockQuantity: int.tryParse(_stockController.text) ?? 0,
       pages: int.tryParse(_pagesController.text),
@@ -592,6 +597,7 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
       title: _titleController.text.trim(),
       description: _descriptionController.text.trim(),
       price: double.tryParse(_priceController.text),
+      costPrice: double.tryParse(_costPriceController.text),
       originalPrice: double.tryParse(_originalPriceController.text),
       discountPercentage: double.tryParse(_discountPercentageController.text),
       stockQuantity: int.tryParse(_stockController.text),
@@ -977,7 +983,7 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Price & Original Price
+                    // Price & Cost Price
                     Row(
                       children: [
                         Expanded(
@@ -1004,17 +1010,40 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
                         const SizedBox(width: 16),
                         Expanded(
                           child: TextFormField(
-                            controller: _originalPriceController,
+                            controller: _costPriceController,
                             decoration: const InputDecoration(
-                              labelText: 'Giá gốc',
+                              labelText: 'Giá nhập',
                               border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.money_off),
+                              prefixIcon: Icon(Icons.shopping_cart),
                               suffixText: 'VNĐ',
+                              helperText: 'Giá vốn sản phẩm',
                             ),
                             keyboardType: TextInputType.number,
+                            validator: (value) {
+                              if (value != null && value.trim().isNotEmpty) {
+                                if (double.tryParse(value) == null) {
+                                  return 'Giá không hợp lệ';
+                                }
+                              }
+                              return null;
+                            },
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Original Price
+                    TextFormField(
+                      controller: _originalPriceController,
+                      decoration: const InputDecoration(
+                        labelText: 'Giá gốc',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.money_off),
+                        suffixText: 'VNĐ',
+                        helperText: 'Giá trước khi giảm (hiển thị cho khách)',
+                      ),
+                      keyboardType: TextInputType.number,
                     ),
                     const SizedBox(height: 16),
 

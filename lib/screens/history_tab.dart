@@ -373,7 +373,7 @@ class _HistoryTabState extends State<HistoryTab>
       case 'processing':
         return 'Đang xử lý';
       case 'shipped':
-        return 'Đã giao';
+        return 'Đang giao';
       case 'delivered':
         return 'Hoàn thành';
       case 'cancelled':

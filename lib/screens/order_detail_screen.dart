@@ -498,6 +498,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     final discountAmount = _orderDetail!['discount_amount'] ?? 0.0;
     final shippingFee = _orderDetail!['shipping_fee'] ?? 0.0;
     final totalAmount = _orderDetail!['total_amount'] ?? 0.0;
+    final voucher = _orderDetail!['voucher'] as Map<String, dynamic>?;
 
     return Card(
       elevation: 2,
@@ -520,6 +521,48 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               '${(subtotal / 1000).toStringAsFixed(0)}k VNĐ',
               false,
             ),
+            // Hiển thị voucher nếu có
+            if (voucher != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.discount,
+                        color: Colors.orange.shade700, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Mã giảm giá: ${voucher['code']}',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.orange.shade900,
+                              fontSize: 13,
+                            ),
+                          ),
+                          if (voucher['description'] != null)
+                            Text(
+                              voucher['description'],
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             if (discountAmount > 0)
               _buildSummaryRow(
                 'Giảm giá',

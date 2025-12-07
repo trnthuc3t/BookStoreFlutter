@@ -81,11 +81,11 @@ class ApiService {
         print('✅ Login successful! Parsing response...');
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         print('✅ Response keys: ${data.keys.join(', ')}');
-        
+
         // Store access token
         await _storeToken(data['access_token']);
         print('✅ Access token stored');
-        
+
         // Store refresh token if available
         if (data.containsKey('refresh_token')) {
           print('✅ Refresh token found in response!');
@@ -104,7 +104,11 @@ class ApiService {
       } catch (_) {
         errorData = null;
       }
-      final detail = (errorData?['detail'] ?? errorData?['message'] ?? errorData?['error'] ?? '').toString();
+      final detail = (errorData?['detail'] ??
+              errorData?['message'] ??
+              errorData?['error'] ??
+              '')
+          .toString();
       final code = (errorData?['code'] ?? '').toString().toLowerCase();
 
       String friendly;
@@ -157,12 +161,13 @@ class ApiService {
       }
 
       print('🔄 ========== REFRESHING ACCESS TOKEN ==========');
-      print('🔄 Refresh token (first 30 chars): ${refreshToken.substring(0, min<int>(30, refreshToken.length))}...');
+      print(
+          '🔄 Refresh token (first 30 chars): ${refreshToken.substring(0, min<int>(30, refreshToken.length))}...');
       print('🔄 Refresh token length: ${refreshToken.length}');
-      
+
       final url = '${ApiConstants.refreshTokenUrl}?refresh_token=$refreshToken';
       print('🔄 POST $url');
-      
+
       final response = await http.post(
         Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
@@ -183,7 +188,8 @@ class ApiService {
           final newAccessToken = data['access_token'] as String;
           await _storeToken(newAccessToken);
           print('✅ Access token refreshed successfully!');
-          print('✅ New token (first 30 chars): ${newAccessToken.substring(0, min<int>(30, newAccessToken.length))}...');
+          print(
+              '✅ New token (first 30 chars): ${newAccessToken.substring(0, min<int>(30, newAccessToken.length))}...');
           print('🔄 ========== REFRESH COMPLETE ==========');
           return true;
         } else {
@@ -584,14 +590,14 @@ class ApiService {
         'POST',
         Uri.parse('${ApiConstants.baseUrl}/api/publishers'),
       );
-      
+
       request.fields['name'] = name;
       if (contactEmail != null) request.fields['contact_email'] = contactEmail;
       if (contactPhone != null) request.fields['contact_phone'] = contactPhone;
-      
+
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
-      
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         print('✅ Created publisher: $name');
@@ -636,16 +642,17 @@ class ApiService {
         'POST',
         Uri.parse('${ApiConstants.baseUrl}/api/suppliers'),
       );
-      
+
       request.fields['name'] = name;
-      if (contactPerson != null) request.fields['contact_person'] = contactPerson;
+      if (contactPerson != null)
+        request.fields['contact_person'] = contactPerson;
       if (email != null) request.fields['email'] = email;
       if (phone != null) request.fields['phone'] = phone;
       if (address != null) request.fields['address'] = address;
-      
+
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
-      
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         print('✅ Created supplier: $name');
@@ -686,20 +693,23 @@ class ApiService {
       final url =
           '${ApiConstants.cartUrl}?user_id=$userId&book_id=$bookId&quantity=$quantity';
       print('🛒 POST $url');
-      
+
       final headers = await _getHeaders();
       print('🔑 Headers: ${headers.keys.join(", ")}');
       if (headers.containsKey('Authorization')) {
         final token = headers['Authorization'] ?? '';
-        print('🔑 Auth header present: ${token.substring(0, min(20, token.length))}...');
+        print(
+            '🔑 Auth header present: ${token.substring(0, min(20, token.length))}...');
       } else {
         print('⚠️ WARNING: No Authorization header!');
       }
 
-      final response = await http.post(
+      final response = await http
+          .post(
         Uri.parse(url),
         headers: headers,
-      ).timeout(
+      )
+          .timeout(
         const Duration(seconds: 15),
         onTimeout: () {
           print('❌ Add to cart request timeout after 15 seconds');
@@ -716,13 +726,13 @@ class ApiService {
         print('❌ ========== 401 UNAUTHORIZED IN ADD TO CART ==========');
         print('❌ Token may be invalid or expired');
         print('❌ isRetry flag: $isRetry');
-        
+
         // Try to refresh token and retry once
         if (!isRetry) {
           print('🔄 Will attempt to refresh token...');
           final refreshed = await refreshAccessToken();
           print('🔄 Refresh result: $refreshed');
-          
+
           if (refreshed) {
             print('✅ Token refreshed successfully, retrying add to cart...');
             return await addToCart(
@@ -737,9 +747,12 @@ class ApiService {
         } else {
           print('❌ Already retried once, giving up');
         }
-        
+
         print('❌ ========== RETURNING UNAUTHORIZED ERROR ==========');
-        return {'error': 'unauthorized', 'message': 'Phiên đăng nhập hết hạn, vui lòng đăng nhập lại'};
+        return {
+          'error': 'unauthorized',
+          'message': 'Phiên đăng nhập hết hạn, vui lòng đăng nhập lại'
+        };
       } else if (response.statusCode == 403) {
         print('❌ Forbidden - User not authorized to modify this cart');
         return {'error': 'forbidden', 'message': 'Không có quyền thao tác'};
@@ -756,7 +769,10 @@ class ApiService {
       }
     } on TimeoutException catch (e) {
       print('❌ Add to cart timeout: $e');
-      return {'error': 'timeout', 'message': 'Kết nối quá chậm, vui lòng thử lại'};
+      return {
+        'error': 'timeout',
+        'message': 'Kết nối quá chậm, vui lòng thử lại'
+      };
     } catch (e, stackTrace) {
       print('❌ Add to cart error: $e');
       print('Stack trace: $stackTrace');
@@ -950,7 +966,7 @@ class ApiService {
       }
     } catch (e) {
       print('❌ [API] Validate voucher error: $e');
-      return null;  // null = network error
+      return null; // null = network error
     }
   }
 
@@ -961,7 +977,8 @@ class ApiService {
     required double subtotal,
   }) async {
     try {
-      print('🎫 Validating voucher $code with cart: ${cartItems.length} items, subtotal: $subtotal');
+      print(
+          '🎫 Validating voucher $code with cart: ${cartItems.length} items, subtotal: $subtotal');
       final response = await http.post(
         Uri.parse('${ApiConstants.baseUrl}/api/vouchers/validate'),
         headers: await _getHeaders(),
@@ -972,14 +989,14 @@ class ApiService {
           'subtotal': subtotal,
         }),
       );
-      
+
       print('🎫 Validate response: ${response.statusCode}');
       print('🎫 Response body: ${response.body}');
-      
+
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
-      
+
       // Try parse error
       try {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -1052,7 +1069,9 @@ class ApiService {
       try {
         final data = jsonDecode(response.body);
         if (data is Map) {
-          message = data['detail']?.toString() ?? data['message']?.toString() ?? data['error']?.toString();
+          message = data['detail']?.toString() ??
+              data['message']?.toString() ??
+              data['error']?.toString();
         }
       } catch (_) {}
       message ??= 'Đổi mật khẩu thất bại';
@@ -1182,7 +1201,9 @@ class ApiService {
   // ============================================
 
   /// Get admin dashboard stats
-  static Future<Map<String, dynamic>?> getAdminDashboard() async {
+  static Future<Map<String, dynamic>?> getAdminDashboard({
+    bool isRetry = false,
+  }) async {
     try {
       print('📊 Calling /api/admin/dashboard...');
       final response = await http.get(
@@ -1197,6 +1218,15 @@ class ApiService {
         final data = jsonDecode(response.body);
         print('📊 Dashboard data decoded successfully');
         return data;
+      } else if (response.statusCode == 401 && !isRetry) {
+        print('❌ 401 Unauthorized - Attempting to refresh token...');
+        final refreshed = await refreshAccessToken();
+        if (refreshed) {
+          print('✅ Token refreshed, retrying get admin dashboard...');
+          return await getAdminDashboard(isRetry: true);
+        } else {
+          print('❌ Token refresh failed');
+        }
       } else {
         print('❌ Dashboard error: ${response.statusCode} - ${response.body}');
       }
@@ -1213,6 +1243,7 @@ class ApiService {
     int skip = 0,
     int limit = 50,
     String? status,
+    bool isRetry = false,
   }) async {
     try {
       String url =
@@ -1232,6 +1263,20 @@ class ApiService {
         final data = jsonDecode(response.body);
         print('🛒 Orders data decoded: ${data['orders']?.length ?? 0} orders');
         return data['orders'] ?? [];
+      } else if (response.statusCode == 401 && !isRetry) {
+        print('❌ 401 Unauthorized - Attempting to refresh token...');
+        final refreshed = await refreshAccessToken();
+        if (refreshed) {
+          print('✅ Token refreshed, retrying get admin orders...');
+          return await getAdminOrders(
+            skip: skip,
+            limit: limit,
+            status: status,
+            isRetry: true,
+          );
+        } else {
+          print('❌ Token refresh failed');
+        }
       } else {
         print('❌ Orders error: ${response.statusCode} - ${response.body}');
       }
@@ -1250,6 +1295,7 @@ class ApiService {
     String? paymentStatus,
     String? trackingNumber,
     String? notes,
+    bool isRetry = false,
   }) async {
     try {
       print('🔄 Updating order #$orderId to status: $status');
@@ -1271,11 +1317,25 @@ class ApiService {
       if (response.statusCode == 200) {
         print('✅ Order status updated successfully');
         return true;
+      } else if (response.statusCode == 401 && !isRetry) {
+        print('❌ 401 Unauthorized - Attempting to refresh token...');
+        final refreshed = await refreshAccessToken();
+        if (refreshed) {
+          print('✅ Token refreshed, retrying update order status...');
+          return await updateOrderStatus(
+            orderId: orderId,
+            status: status,
+            paymentStatus: paymentStatus,
+            trackingNumber: trackingNumber,
+            notes: notes,
+            isRetry: true,
+          );
+        }
       } else {
         print(
             '❌ Update order error: ${response.statusCode} - ${response.body}');
-        return false;
       }
+      return false;
     } catch (e, stackTrace) {
       print('❌ Update order status error: $e');
       print('Stack trace: $stackTrace');
@@ -1288,6 +1348,7 @@ class ApiService {
     int skip = 0,
     int limit = 50,
     String? role,
+    bool isRetry = false,
   }) async {
     try {
       String url =
@@ -1302,6 +1363,18 @@ class ApiService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return data['users'] ?? [];
+      } else if (response.statusCode == 401 && !isRetry) {
+        print('❌ 401 Unauthorized - Attempting to refresh token...');
+        final refreshed = await refreshAccessToken();
+        if (refreshed) {
+          print('✅ Token refreshed, retrying get admin users...');
+          return await getAdminUsers(
+            skip: skip,
+            limit: limit,
+            role: role,
+            isRetry: true,
+          );
+        }
       }
       return [];
     } catch (e) {
@@ -1315,6 +1388,7 @@ class ApiService {
     int skip = 0,
     int limit = 50,
     bool? isActive,
+    bool isRetry = false,
   }) async {
     try {
       String url =
@@ -1329,6 +1403,18 @@ class ApiService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return data['books'] ?? [];
+      } else if (response.statusCode == 401 && !isRetry) {
+        print('❌ 401 Unauthorized - Attempting to refresh token...');
+        final refreshed = await refreshAccessToken();
+        if (refreshed) {
+          print('✅ Token refreshed, retrying get admin books...');
+          return await getAdminBooks(
+            skip: skip,
+            limit: limit,
+            isActive: isActive,
+            isRetry: true,
+          );
+        }
       }
       return [];
     } catch (e) {
@@ -1344,6 +1430,7 @@ class ApiService {
     String? subtitle,
     String? description,
     double? price,
+    double? costPrice,
     double? originalPrice,
     double? discountPercentage,
     int? stockQuantity,
@@ -1373,6 +1460,7 @@ class ApiService {
           if (subtitle != null) 'subtitle': subtitle,
           if (description != null) 'description': description,
           if (price != null) 'price': price,
+          if (costPrice != null) 'cost_price': costPrice,
           if (originalPrice != null) 'original_price': originalPrice,
           if (discountPercentage != null)
             'discount_percentage': discountPercentage,
@@ -1424,7 +1512,8 @@ class ApiService {
         print('✅ Authors updated successfully');
         return true;
       } else {
-        print('❌ Update authors error: ${response.statusCode} - ${response.body}');
+        print(
+            '❌ Update authors error: ${response.statusCode} - ${response.body}');
         return false;
       }
     } catch (e, stackTrace) {
@@ -1489,6 +1578,7 @@ class ApiService {
     String? description,
     String? isbn,
     required double price,
+    double? costPrice,
     double? originalPrice,
     required int stockQuantity,
     int? pages,
@@ -1523,6 +1613,8 @@ class ApiService {
         request.fields['description'] = description;
       if (isbn != null && isbn.isNotEmpty) request.fields['isbn'] = isbn;
       request.fields['price'] = price.toString();
+      if (costPrice != null)
+        request.fields['cost_price'] = costPrice.toString();
       if (originalPrice != null)
         request.fields['original_price'] = originalPrice.toString();
       request.fields['stock_quantity'] = stockQuantity.toString();
@@ -1582,6 +1674,7 @@ class ApiService {
   static Future<bool> updateUserStatus({
     required int userId,
     required bool isActive,
+    bool isRetry = false,
   }) async {
     try {
       final response = await http.put(
@@ -1590,7 +1683,21 @@ class ApiService {
         headers: await _getHeaders(),
       );
 
-      return response.statusCode == 200;
+      if (response.statusCode == 200) {
+        return true;
+      } else if (response.statusCode == 401 && !isRetry) {
+        print('❌ 401 Unauthorized - Attempting to refresh token...');
+        final refreshed = await refreshAccessToken();
+        if (refreshed) {
+          print('✅ Token refreshed, retrying update user status...');
+          return await updateUserStatus(
+            userId: userId,
+            isActive: isActive,
+            isRetry: true,
+          );
+        }
+      }
+      return false;
     } catch (e) {
       print('Update user status error: $e');
       return false;
@@ -1601,6 +1708,7 @@ class ApiService {
   static Future<bool> toggleStaffRole({
     required int userId,
     required bool isStaff,
+    bool isRetry = false,
   }) async {
     try {
       print('🔄 Toggling staff role for user $userId to: $isStaff');
@@ -1613,11 +1721,22 @@ class ApiService {
       if (response.statusCode == 200) {
         print('✅ Staff role toggled successfully');
         return true;
+      } else if (response.statusCode == 401 && !isRetry) {
+        print('❌ 401 Unauthorized - Attempting to refresh token...');
+        final refreshed = await refreshAccessToken();
+        if (refreshed) {
+          print('✅ Token refreshed, retrying toggle staff role...');
+          return await toggleStaffRole(
+            userId: userId,
+            isStaff: isStaff,
+            isRetry: true,
+          );
+        }
       } else {
         print('❌ Failed to toggle staff role: ${response.statusCode}');
         print('Response: ${response.body}');
-        return false;
       }
+      return false;
     } catch (e) {
       print('❌ Toggle staff role error: $e');
       return false;
@@ -1664,13 +1783,13 @@ class ApiService {
         print('❌ ========== 401 UNAUTHORIZED IN CREATE ORDER ==========');
         print('❌ Token may be expired');
         print('❌ isRetry flag: $isRetry');
-        
+
         // Try to refresh token and retry once
         if (!isRetry) {
           print('🔄 Will attempt to refresh token...');
           final refreshed = await refreshAccessToken();
           print('🔄 Refresh result: $refreshed');
-          
+
           if (refreshed) {
             print('✅ Token refreshed successfully, retrying create order...');
             return await createSimpleOrder(
@@ -1686,7 +1805,7 @@ class ApiService {
         } else {
           print('❌ Already retried once, giving up');
         }
-        
+
         print('❌ ========== THROWING UNAUTHORIZED EXCEPTION ==========');
         throw Exception('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.');
       } else if (response.statusCode == 400) {
@@ -1695,9 +1814,10 @@ class ApiService {
           final errorData = jsonDecode(response.body);
           final errorDetail = errorData['detail'] ?? 'Lỗi không xác định';
           print('❌ Bad request: $errorDetail');
-          
+
           if (errorDetail.toString().toLowerCase().contains('cart is empty')) {
-            throw Exception('Giỏ hàng trống. Vui lòng thêm sản phẩm vào giỏ hàng trước.');
+            throw Exception(
+                'Giỏ hàng trống. Vui lòng thêm sản phẩm vào giỏ hàng trước.');
           } else if (errorDetail.toString().toLowerCase().contains('voucher')) {
             throw Exception('Lỗi voucher: $errorDetail');
           } else {
@@ -1712,8 +1832,10 @@ class ApiService {
       } else if (response.statusCode == 500) {
         throw Exception('Lỗi server. Vui lòng thử lại sau.');
       } else {
-        print('❌ Create order error: ${response.statusCode} - ${response.body}');
-        throw Exception('Lỗi tạo đơn hàng (${response.statusCode}). Vui lòng thử lại.');
+        print(
+            '❌ Create order error: ${response.statusCode} - ${response.body}');
+        throw Exception(
+            'Lỗi tạo đơn hàng (${response.statusCode}). Vui lòng thử lại.');
       }
     } catch (e, stackTrace) {
       print('❌ Create order error: $e');
@@ -1773,12 +1895,6 @@ class ApiService {
     bool isRetry = false,
   }) async {
     try {
-      // Refresh token trước khi gọi API
-      if (!isRetry) {
-        print('🔄 Refreshing token before getting orders...');
-        await refreshAccessToken();
-      }
-      
       print('📦 Getting orders for user $userId...');
       final response = await http.get(
         Uri.parse('${ApiConstants.baseUrl}/api/orders/$userId'),
@@ -1792,7 +1908,7 @@ class ApiService {
         print('📦 Orders data: ${data['orders']?.length ?? 0} orders');
         return data['orders'] ?? [];
       } else if (response.statusCode == 401 && !isRetry) {
-        print('❌ Unauthorized - Attempting to refresh token again...');
+        print('❌ Unauthorized - Attempting to refresh token...');
         final refreshed = await refreshAccessToken();
         if (refreshed) {
           print('✅ Token refreshed, retrying get orders...');
@@ -1817,12 +1933,6 @@ class ApiService {
     bool isRetry = false,
   }) async {
     try {
-      // Refresh token trước khi gọi API
-      if (!isRetry) {
-        print('🔄 Refreshing token before getting order detail...');
-        await refreshAccessToken();
-      }
-      
       print('📦 Getting order detail for order #$orderId...');
       final response = await http.get(
         Uri.parse('${ApiConstants.baseUrl}/api/orders/$orderId/details'),
@@ -1836,7 +1946,7 @@ class ApiService {
         print('✅ Order detail loaded successfully');
         return data;
       } else if (response.statusCode == 401 && !isRetry) {
-        print('❌ Unauthorized - Attempting to refresh token again...');
+        print('❌ Unauthorized - Attempting to refresh token...');
         final refreshed = await refreshAccessToken();
         if (refreshed) {
           print('✅ Token refreshed, retrying get order detail...');
@@ -1845,7 +1955,8 @@ class ApiService {
         print('❌ Failed to refresh token');
         return null;
       } else {
-        print('❌ Order detail error: ${response.statusCode} - ${response.body}');
+        print(
+            '❌ Order detail error: ${response.statusCode} - ${response.body}');
       }
       return null;
     } catch (e, stackTrace) {
@@ -2043,6 +2154,7 @@ class ApiService {
     required String period,
     String? startDate,
     String? endDate,
+    bool isRetry = false,
   }) async {
     try {
       final queryParams = <String>[
@@ -2051,9 +2163,10 @@ class ApiService {
         if (endDate != null) 'end_date=$endDate',
       ].join('&');
 
-      final url = '${ApiConstants.baseUrl}/api/admin/statistics/revenue?$queryParams';
+      final url =
+          '${ApiConstants.baseUrl}/api/admin/statistics/revenue?$queryParams';
       print('📊 Calling revenue statistics: $url');
-      
+
       final response = await http.get(
         Uri.parse(url),
         headers: await _getHeaders(),
@@ -2066,6 +2179,18 @@ class ApiService {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         print('📊 Revenue statistics data decoded: $data');
         return data;
+      } else if (response.statusCode == 401 && !isRetry) {
+        print('❌ 401 Unauthorized - Attempting to refresh token...');
+        final refreshed = await refreshAccessToken();
+        if (refreshed) {
+          print('✅ Token refreshed, retrying get revenue statistics...');
+          return await getRevenueStatistics(
+            period: period,
+            startDate: startDate,
+            endDate: endDate,
+            isRetry: true,
+          );
+        }
       }
       print('❌ Get revenue statistics error: ${response.statusCode}');
       return null;
@@ -2080,6 +2205,7 @@ class ApiService {
     required String period,
     String? startDate,
     String? endDate,
+    bool isRetry = false,
   }) async {
     try {
       final queryParams = <String>[
@@ -2088,9 +2214,10 @@ class ApiService {
         if (endDate != null) 'end_date=$endDate',
       ].join('&');
 
-      final url = '${ApiConstants.baseUrl}/api/admin/statistics/books?$queryParams';
+      final url =
+          '${ApiConstants.baseUrl}/api/admin/statistics/books?$queryParams';
       print('📊 Calling book statistics: $url');
-      
+
       final response = await http.get(
         Uri.parse(url),
         headers: await _getHeaders(),
@@ -2103,6 +2230,18 @@ class ApiService {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         print('📊 Book statistics data decoded: $data');
         return data;
+      } else if (response.statusCode == 401 && !isRetry) {
+        print('❌ 401 Unauthorized - Attempting to refresh token...');
+        final refreshed = await refreshAccessToken();
+        if (refreshed) {
+          print('✅ Token refreshed, retrying get book statistics...');
+          return await getBookStatistics(
+            period: period,
+            startDate: startDate,
+            endDate: endDate,
+            isRetry: true,
+          );
+        }
       }
       print('❌ Get book statistics error: ${response.statusCode}');
       return null;
@@ -2117,6 +2256,7 @@ class ApiService {
     required String period,
     String? startDate,
     String? endDate,
+    bool isRetry = false,
   }) async {
     try {
       final queryParams = <String>[
@@ -2125,9 +2265,10 @@ class ApiService {
         if (endDate != null) 'end_date=$endDate',
       ].join('&');
 
-      final url = '${ApiConstants.baseUrl}/api/admin/statistics/categories?$queryParams';
+      final url =
+          '${ApiConstants.baseUrl}/api/admin/statistics/categories?$queryParams';
       print('📊 Calling category statistics: $url');
-      
+
       final response = await http.get(
         Uri.parse(url),
         headers: await _getHeaders(),
@@ -2140,6 +2281,18 @@ class ApiService {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         print('📊 Category statistics data decoded: $data');
         return data;
+      } else if (response.statusCode == 401 && !isRetry) {
+        print('❌ 401 Unauthorized - Attempting to refresh token...');
+        final refreshed = await refreshAccessToken();
+        if (refreshed) {
+          print('✅ Token refreshed, retrying get category statistics...');
+          return await getCategoryStatistics(
+            period: period,
+            startDate: startDate,
+            endDate: endDate,
+            isRetry: true,
+          );
+        }
       }
       print('❌ Get category statistics error: ${response.statusCode}');
       return null;
@@ -2150,25 +2303,25 @@ class ApiService {
   }
 
   // ========== CHATBOT ORDER APIs ==========
-  
+
   /// Xóa toàn bộ giỏ hàng của user
   static Future<bool> clearCart({required int userId}) async {
     try {
       print('🗑️ Clearing cart for user $userId...');
-      
+
       // Lấy danh sách cart items từ getCart
       final cartData = await getCart(userId);
       if (cartData == null) {
         print('✅ Cart already empty or error getting cart');
         return true;
       }
-      
+
       final cartItems = cartData['items'] as List<dynamic>?;
       if (cartItems == null || cartItems.isEmpty) {
         print('✅ Cart already empty');
         return true;
       }
-      
+
       // Xóa từng item
       for (var item in cartItems) {
         final itemId = item['id'];
@@ -2176,7 +2329,7 @@ class ApiService {
           await removeCartItem(itemId);
         }
       }
-      
+
       print('✅ Cart cleared successfully');
       return true;
     } catch (e) {
@@ -2184,89 +2337,86 @@ class ApiService {
       return false;
     }
   }
-  
+
   /// Thêm sản phẩm vào giỏ hàng (bypass token check, auto refresh)
   static Future<Map<String, dynamic>?> addToCartDirect({
     required int userId,
     required int bookId,
     required int quantity,
+    bool isRetry = false,
   }) async {
-    // Refresh token trước khi gọi API
-    print('🔄 Refreshing token before add to cart...');
-    await refreshAccessToken();
-    
     try {
-      final url = '${ApiConstants.cartUrl}?user_id=$userId&book_id=$bookId&quantity=$quantity';
+      final url =
+          '${ApiConstants.cartUrl}?user_id=$userId&book_id=$bookId&quantity=$quantity';
       print('🛒 POST $url');
-      
-      final response = await http.post(
-        Uri.parse(url),
-        headers: await _getHeaders(),
-      ).timeout(const Duration(seconds: 15));
-      
+
+      final response = await http
+          .post(
+            Uri.parse(url),
+            headers: await _getHeaders(),
+          )
+          .timeout(const Duration(seconds: 15));
+
       print('🛒 Response: ${response.statusCode} - ${response.body}');
-      
+
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
-      } else if (response.statusCode == 401) {
+      } else if (response.statusCode == 401 && !isRetry) {
         // Thử refresh token và retry
         print('🔄 Got 401, refreshing token and retrying...');
         final refreshed = await refreshAccessToken();
         if (refreshed) {
-          final retryResponse = await http.post(
-            Uri.parse(url),
-            headers: await _getHeaders(),
-          ).timeout(const Duration(seconds: 15));
-          
-          if (retryResponse.statusCode == 200) {
-            return jsonDecode(retryResponse.body);
-          }
+          print('✅ Token refreshed, retrying add to cart...');
+          return await addToCartDirect(
+            userId: userId,
+            bookId: bookId,
+            quantity: quantity,
+            isRetry: true,
+          );
         }
         return {'error': 'unauthorized', 'message': 'Phiên đăng nhập hết hạn'};
       }
-      
+
       return {'error': 'failed', 'message': 'Lỗi ${response.statusCode}'};
     } catch (e) {
       print('❌ Add to cart direct error: $e');
       return {'error': 'exception', 'message': e.toString()};
     }
   }
-  
+
   /// Tạo đơn hàng trực tiếp (bypass token check, auto refresh)
   static Future<Map<String, dynamic>?> createOrderDirect({
     required int userId,
     String paymentMethod = 'COD',
+    bool isRetry = false,
   }) async {
-    // Refresh token trước khi gọi API
-    print('🔄 Refreshing token before create order...');
-    await refreshAccessToken();
-    
     try {
-      final url = '${ApiConstants.baseUrl}/api/orders/simple?user_id=$userId&payment_method=$paymentMethod&notes=Đơn hàng từ chatbot';
+      final url =
+          '${ApiConstants.baseUrl}/api/orders/simple?user_id=$userId&payment_method=$paymentMethod&notes=Đơn hàng từ chatbot';
       print('🛍️ POST $url');
-      
-      final response = await http.post(
-        Uri.parse(url),
-        headers: await _getHeaders(),
-      ).timeout(const Duration(seconds: 20));
-      
+
+      final response = await http
+          .post(
+            Uri.parse(url),
+            headers: await _getHeaders(),
+          )
+          .timeout(const Duration(seconds: 20));
+
       print('🛍️ Response: ${response.statusCode} - ${response.body}');
-      
+
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
-      } else if (response.statusCode == 401) {
+      } else if (response.statusCode == 401 && !isRetry) {
         // Thử refresh token và retry
         print('🔄 Got 401, refreshing token and retrying...');
         final refreshed = await refreshAccessToken();
         if (refreshed) {
-          final retryResponse = await http.post(
-            Uri.parse(url),
-            headers: await _getHeaders(),
-          ).timeout(const Duration(seconds: 20));
-          
-          if (retryResponse.statusCode == 200) {
-            return jsonDecode(retryResponse.body);
-          }
+          print('✅ Token refreshed, retrying create order...');
+          return await createOrderDirect(
+            userId: userId,
+            paymentMethod: paymentMethod,
+            isRetry: true,
+          );
         }
         return null;
       } else if (response.statusCode == 400) {
@@ -2274,14 +2424,14 @@ class ApiService {
         final detail = errorData['detail'] ?? 'Lỗi không xác định';
         throw Exception(detail);
       }
-      
+
       return null;
     } catch (e) {
       print('❌ Create order direct error: $e');
       rethrow;
     }
   }
-  
+
   /// Tạo đơn hàng từ chatbot - KHÔNG CẦN AUTH
   static Future<Map<String, dynamic>?> createChatbotOrder({
     required int userId,
@@ -2289,16 +2439,17 @@ class ApiService {
     int quantity = 1,
   }) async {
     try {
-      final url = '${ApiConstants.baseUrl}/api/chatbot/order?user_id=$userId&book_id=$bookId&quantity=$quantity';
+      final url =
+          '${ApiConstants.baseUrl}/api/chatbot/order?user_id=$userId&book_id=$bookId&quantity=$quantity';
       print('🤖 POST $url');
-      
+
       final response = await http.post(
         Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
       ).timeout(const Duration(seconds: 20));
-      
+
       print('🤖 Response: ${response.statusCode} - ${response.body}');
-      
+
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {

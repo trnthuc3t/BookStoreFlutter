@@ -59,9 +59,9 @@ class _AdminStatisticsScreenState extends State<AdminStatisticsScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade900,
+      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: Colors.orange,
         title: const Text(
           'Thống kê chi tiết',
           style: TextStyle(
@@ -74,13 +74,13 @@ class _AdminStatisticsScreenState extends State<AdminStatisticsScreen>
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),
           child: Container(
-            color: Colors.grey.shade900,
+            color: Colors.orange.shade700,
             child: TabBar(
               controller: _tabController,
-              indicatorColor: Colors.blue.shade400,
+              indicatorColor: Colors.white,
               indicatorWeight: 3,
-              labelColor: Colors.blue.shade400,
-              unselectedLabelColor: Colors.grey.shade500,
+              labelColor: Colors.white,
+              unselectedLabelColor: Colors.orange.shade200,
               labelStyle: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 15,
@@ -143,12 +143,12 @@ class _AdminStatisticsScreenState extends State<AdminStatisticsScreen>
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF212121),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade800),
+        border: Border.all(color: Colors.orange.shade200),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.3),
+            color: Colors.orange.withOpacity(0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -162,14 +162,14 @@ class _AdminStatisticsScreenState extends State<AdminStatisticsScreen>
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.filter_list, size: 20, color: Colors.blue.shade400),
+              Icon(Icons.filter_list, size: 20, color: Colors.orange.shade700),
               const SizedBox(width: 8),
               const Text(
                 'Xem theo:',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 15,
-                  color: Colors.white,
+                  color: Colors.black87,
                 ),
               ),
             ],
@@ -177,32 +177,32 @@ class _AdminStatisticsScreenState extends State<AdminStatisticsScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.grey.shade800,
+              color: Colors.orange.shade50,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.blue.shade700),
+              border: Border.all(color: Colors.orange.shade300),
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 value: _period,
-                icon: Icon(Icons.arrow_drop_down, color: Colors.blue.shade400),
-                dropdownColor: Colors.grey.shade800,
+                icon: Icon(Icons.arrow_drop_down, color: Colors.orange.shade700),
+                dropdownColor: Colors.white,
                 style: TextStyle(
-                  color: Colors.blue.shade300,
+                  color: Colors.orange.shade900,
                   fontWeight: FontWeight.w600,
                   fontSize: 14,
                 ),
                 items: const [
                   DropdownMenuItem(
                     value: 'day',
-                    child: Text('Ngày', style: TextStyle(color: Colors.white)),
+                    child: Text('Ngày', style: TextStyle(color: Colors.black87)),
                   ),
                   DropdownMenuItem(
                     value: 'month',
-                    child: Text('Tháng', style: TextStyle(color: Colors.white)),
+                    child: Text('Tháng', style: TextStyle(color: Colors.black87)),
                   ),
                   DropdownMenuItem(
                     value: 'year',
-                    child: Text('Năm', style: TextStyle(color: Colors.white)),
+                    child: Text('Năm', style: TextStyle(color: Colors.black87)),
                   ),
                 ],
                 onChanged: (value) {
@@ -220,22 +220,22 @@ class _AdminStatisticsScreenState extends State<AdminStatisticsScreen>
               constraints: const BoxConstraints(minWidth: 200),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.grey.shade800,
+                color: Colors.orange.shade50,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey.shade700),
+                border: Border.all(color: Colors.orange.shade200),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.calendar_today, size: 16, color: Colors.grey.shade400),
+                  Icon(Icons.calendar_today, size: 16, color: Colors.orange.shade700),
                   const SizedBox(width: 8),
                   Flexible(
                     child: Text(
                       _startDate != null && _endDate != null
                           ? 'Từ ${_formatDate(_startDate)} đến ${_formatDate(_endDate)}'
                           : 'Chọn khoảng thời gian',
-                      style: TextStyle(
-                        color: Colors.grey.shade300,
+                      style: const TextStyle(
+                        color: Colors.black87,
                         fontSize: 13,
                       ),
                       maxLines: 2,
@@ -253,7 +253,7 @@ class _AdminStatisticsScreenState extends State<AdminStatisticsScreen>
               style: TextStyle(fontWeight: FontWeight.w600),
             ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue.shade700,
+              backgroundColor: Colors.orange,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               shape: RoundedRectangleBorder(
@@ -409,17 +409,23 @@ class _RevenueStatisticsTabState extends State<RevenueStatisticsTab> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF424242), Color(0xFF212121)],
+              gradient: LinearGradient(
+                colors: [Colors.orange.shade400, Colors.orange.shade600],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.blue.shade700),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.orange.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: Row(
               children: [
-                Icon(Icons.assessment, color: Colors.blue.shade400, size: 24),
+                const Icon(Icons.assessment, color: Colors.white, size: 24),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -440,19 +446,19 @@ class _RevenueStatisticsTabState extends State<RevenueStatisticsTab> {
               padding: const EdgeInsets.all(16),
               margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
-                color: Colors.orange.shade900.withOpacity(0.2),
-                border: Border.all(color: Colors.orange.shade700, width: 1.5),
+                color: Colors.orange.shade50,
+                border: Border.all(color: Colors.orange.shade300, width: 1.5),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline, color: Colors.orange.shade400, size: 24),
+                  Icon(Icons.info_outline, color: Colors.orange.shade700, size: 24),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       'Không có đơn hàng nào đã thanh toán trong khoảng thời gian này',
                       style: TextStyle(
-                        color: Colors.orange.shade300,
+                        color: Colors.orange.shade900,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -463,12 +469,12 @@ class _RevenueStatisticsTabState extends State<RevenueStatisticsTab> {
           const SizedBox(height: 16),
           Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF212121),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade800),
+              border: Border.all(color: Colors.grey.shade300),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
+                  color: Colors.grey.withOpacity(0.2),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -646,14 +652,44 @@ class _BookStatisticsTabState extends State<BookStatisticsTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Thống kê từ ${_data!.startDate} đến ${_data!.endDate}',
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Tổng số sách: ${_data!.books.length}',
-            style: const TextStyle(fontSize: 14, color: Colors.grey),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.orange.shade400, Colors.orange.shade600],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.orange.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Thống kê từ ${_data!.startDate} đến ${_data!.endDate}',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Tổng số sách: ${_data!.books.length}',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.white70,
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
           SortableDataTable(
@@ -836,14 +872,44 @@ class _CategoryStatisticsTabState extends State<CategoryStatisticsTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Thống kê từ ${_data!.startDate} đến ${_data!.endDate}',
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Tổng số thể loại: ${_data!.categories.length}',
-            style: const TextStyle(fontSize: 14, color: Colors.grey),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.orange.shade400, Colors.orange.shade600],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.orange.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Thống kê từ ${_data!.startDate} đến ${_data!.endDate}',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Tổng số thể loại: ${_data!.categories.length}',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.white70,
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
           SortableDataTable(

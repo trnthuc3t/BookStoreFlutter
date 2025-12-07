@@ -69,7 +69,7 @@ class _AddressScreenState extends State<AddressScreen> {
     print('🎨 AddressScreen build() called');
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Địa chễ giao hàng'),
+        title: const Text('Địa chỉ giao hàng'),
         elevation: 0,
         actions: [
           IconButton(

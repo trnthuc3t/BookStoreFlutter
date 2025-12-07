@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'admin_product_form_screen.dart';
 import 'admin/admin_statistics_screen.dart';
 import 'admin/admin_voucher_dashboard_screen.dart';
+import 'order_detail_screen.dart';
 
 /// Main screen for Admin with completely different UI
 class AdminMainScreen extends StatefulWidget {
@@ -21,7 +22,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
   List<Widget> _getScreens() {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final isAdmin = authProvider.currentUser?.isAdmin ?? false;
-    
+
     // Staff không được xem Dashboard (doanh thu)
     if (isAdmin) {
       return [
@@ -45,7 +46,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
   List<BottomNavigationBarItem> _getNavItems() {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final isAdmin = authProvider.currentUser?.isAdmin ?? false;
-    
+
     if (isAdmin) {
       return const [
         BottomNavigationBarItem(
@@ -95,7 +96,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
   Widget build(BuildContext context) {
     final screens = _getScreens();
     final navItems = _getNavItems();
-    
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Admin Panel'),
@@ -552,7 +553,7 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
       case 'processing':
         return 'Đang xử lý';
       case 'shipped':
-        return 'Đã giao';
+        return 'Đang giao';
       case 'delivered':
         return 'Hoàn thành';
       case 'cancelled':
@@ -615,8 +616,50 @@ class _AdminOrdersTabState extends State<AdminOrdersTab> {
   }
 
   Future<void> _updateOrderStatus(int orderId, String newStatus) async {
+    // Tìm đơn hàng hiện tại để kiểm tra trạng thái
+    final order = _orders.firstWhere(
+      (o) => o['id'] == orderId,
+      orElse: () => <String, dynamic>{},
+    );
+
+    final currentStatus = order['status'] as String?;
+
+    // Không cho phép thay đổi trạng thái đơn hàng đã hoàn thành hoặc đã hoàn tiền
+    if (currentStatus == 'delivered' || currentStatus == 'refunded') {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              currentStatus == 'delivered'
+                  ? '❌ Đơn hàng đã hoàn thành, không thể thay đổi trạng thái!'
+                  : '❌ Đơn hàng đã hoàn tiền, không thể thay đổi trạng thái!',
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+      return;
+    }
+
+    // Không cho phép hủy đơn hàng đã hoàn thành hoặc đã hoàn tiền (double check)
+    if (newStatus == 'cancelled' &&
+        (currentStatus == 'delivered' || currentStatus == 'refunded')) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                '❌ Không thể hủy đơn hàng đã hoàn thành hoặc đã hoàn tiền!'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+      return;
+    }
+
     print(
-        '📝 Admin: Updating order #$orderId from current status to: $newStatus');
+        '📝 Admin: Updating order #$orderId from $currentStatus to: $newStatus');
 
     final success = await ApiService.updateOrderStatus(
       orderId: orderId,
@@ -647,6 +690,22 @@ class _AdminOrdersTabState extends State<AdminOrdersTab> {
     }
   }
 
+  void _viewOrderDetails(Map<String, dynamic> order) {
+    Navigator.of(context)
+        .push(
+      MaterialPageRoute(
+        builder: (context) => OrderDetailScreen(
+          orderId: order['id'],
+          orderNumber: order['order_number'],
+        ),
+      ),
+    )
+        .then((_) {
+      // Reload orders when returning from detail screen
+      _loadOrders();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -667,17 +726,16 @@ class _AdminOrdersTabState extends State<AdminOrdersTab> {
                         EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
                   items: const [
-                    DropdownMenuItem(value: null, child: Text('🔍 Tất cả')),
+                    DropdownMenuItem(value: null, child: Text('Tất cả')),
                     DropdownMenuItem(
-                        value: 'pending', child: Text('⏳ Chờ xử lý')),
+                        value: 'pending', child: Text('Chờ xử lý')),
                     DropdownMenuItem(
-                        value: 'processing', child: Text('⚙️ Đang xử lý')),
+                        value: 'processing', child: Text('Đang xử lý')),
                     DropdownMenuItem(
-                        value: 'shipped', child: Text('🚚 Đã giao')),
+                        value: 'shipped', child: Text('Đang giao')),
                     DropdownMenuItem(
-                        value: 'delivered', child: Text('✅ Hoàn thành')),
-                    DropdownMenuItem(
-                        value: 'cancelled', child: Text('❌ Đã hủy')),
+                        value: 'delivered', child: Text('Hoàn thành')),
+                    DropdownMenuItem(value: 'cancelled', child: Text('Đã hủy')),
                   ],
                   onChanged: (value) {
                     setState(() => _selectedStatus = value);
@@ -800,19 +858,70 @@ class _AdminOrdersTabState extends State<AdminOrdersTab> {
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _buildStatusButton(
-                        'processing', '⚙️ Xử lý', Colors.blue, order['id']),
-                    _buildStatusButton(
-                        'shipped', '🚚 Đã giao', Colors.purple, order['id']),
-                    _buildStatusButton(
-                        'delivered', '✅ Hoàn thành', Colors.green, order['id']),
-                    _buildStatusButton(
-                        'cancelled', '❌ Hủy', Colors.red, order['id']),
-                  ],
+                // Nếu đơn đã hoàn thành hoặc đã hoàn tiền thì không cho phép thay đổi trạng thái
+                if (order['status'] == 'delivered' ||
+                    order['status'] == 'refunded')
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          color: Colors.grey.shade600,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            order['status'] == 'delivered'
+                                ? 'Đơn hàng đã hoàn thành, không thể thay đổi trạng thái'
+                                : 'Đơn hàng đã hoàn tiền, không thể thay đổi trạng thái',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _buildStatusButton('processing', 'Xử lý', Colors.blue,
+                          order['id'], order['status']),
+                      _buildStatusButton('shipped', 'Đã giao', Colors.purple,
+                          order['id'], order['status']),
+                      _buildStatusButton('delivered', 'Hoàn thành',
+                          Colors.green, order['id'], order['status']),
+                      // Chỉ hiển thị nút Hủy nếu đơn chưa hoàn thành hoặc chưa hoàn tiền
+                      if (order['status'] != 'delivered' &&
+                          order['status'] != 'refunded')
+                        _buildStatusButton('cancelled', 'Hủy', Colors.red,
+                            order['id'], order['status']),
+                    ],
+                  ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _viewOrderDetails(order),
+                    icon: const Icon(Icons.visibility, size: 16),
+                    label: const Text('Xem chi tiết đơn hàng'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -822,13 +931,19 @@ class _AdminOrdersTabState extends State<AdminOrdersTab> {
     );
   }
 
-  Widget _buildStatusButton(
-      String status, String label, Color color, int orderId) {
+  Widget _buildStatusButton(String status, String label, Color color,
+      int orderId, String currentStatus) {
+    // Không cho phép thay đổi trạng thái đơn đã hoàn thành hoặc đã hoàn tiền
+    final bool isDisabled =
+        (currentStatus == 'delivered' || currentStatus == 'refunded');
+
     return ElevatedButton(
-      onPressed: () => _updateOrderStatus(orderId, status),
+      onPressed: isDisabled ? null : () => _updateOrderStatus(orderId, status),
       style: ElevatedButton.styleFrom(
         backgroundColor: color,
         foregroundColor: Colors.white,
+        disabledBackgroundColor: Colors.grey.shade300,
+        disabledForegroundColor: Colors.grey.shade500,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
@@ -902,11 +1017,11 @@ class _AdminProductsTabState extends State<AdminProductsTab> {
   Future<void> _editProduct(Map<String, dynamic> product) async {
     // Load full product details before editing
     setState(() => _isLoading = true);
-    
+
     try {
       // Get full product details from API
       final fullProduct = await ApiService.getBook(product['id']);
-      
+
       if (fullProduct == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -918,7 +1033,7 @@ class _AdminProductsTabState extends State<AdminProductsTab> {
         }
         return;
       }
-      
+
       // Navigate to edit form with full product data
       final result = await Navigator.of(context).push(
         MaterialPageRoute(
@@ -1383,7 +1498,8 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
           final roleId = user['role_id'] ?? 3;
 
           // Get current user to check if they're admin
-          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+          final authProvider =
+              Provider.of<AuthProvider>(context, listen: false);
           final currentUserIsAdmin = authProvider.currentUser?.isAdmin ?? false;
 
           return Card(
@@ -1394,7 +1510,11 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
               contentPadding: const EdgeInsets.all(12),
               leading: CircleAvatar(
                 backgroundColor: user['is_active']
-                    ? (isAdmin ? Colors.orange : isStaff ? Colors.blue : Colors.green)
+                    ? (isAdmin
+                        ? Colors.orange
+                        : isStaff
+                            ? Colors.blue
+                            : Colors.green)
                     : Colors.red,
                 child: Text(
                   (user['username'] ?? 'U')[0].toUpperCase(),
@@ -1472,7 +1592,8 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
                         const Icon(Icons.admin_panel_settings,
                             size: 14, color: Colors.blue),
                         const SizedBox(width: 4),
-                        const Text('Quyền Staff:', style: TextStyle(fontSize: 12)),
+                        const Text('Quyền Staff:',
+                            style: TextStyle(fontSize: 12)),
                         const SizedBox(width: 8),
                         Switch(
                           value: isStaff,
@@ -1494,13 +1615,14 @@ class _AdminUsersTabState extends State<AdminUsersTab> {
                 activeColor: Colors.green,
                 // Admin không thể bị vô hiệu hóa
                 // Staff không thể vô hiệu hóa admin hoặc staff khác
-                onChanged: (isAdmin || (!currentUserIsAdmin && (isAdmin || isStaff)))
-                    ? null
-                    : (value) => _toggleUserStatus(
-                          user['id'],
-                          user['is_active'],
-                          '${user['first_name']} ${user['last_name']}',
-                        ),
+                onChanged:
+                    (isAdmin || (!currentUserIsAdmin && (isAdmin || isStaff)))
+                        ? null
+                        : (value) => _toggleUserStatus(
+                              user['id'],
+                              user['is_active'],
+                              '${user['first_name']} ${user['last_name']}',
+                            ),
               ),
             ),
           );
