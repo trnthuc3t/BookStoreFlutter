@@ -18,14 +18,20 @@ class AdminMainScreen extends StatefulWidget {
 
 class _AdminMainScreenState extends State<AdminMainScreen> {
   int _currentIndex = 0;
+  List<Widget>? _cachedScreens;
 
   List<Widget> _getScreens() {
+    // Cache screens để tránh recreate mỗi lần build
+    if (_cachedScreens != null) {
+      return _cachedScreens!;
+    }
+
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final isAdmin = authProvider.currentUser?.isAdmin ?? false;
 
     // Staff không được xem Dashboard (doanh thu)
     if (isAdmin) {
-      return [
+      _cachedScreens = [
         const AdminDashboardTab(),
         const AdminOrdersTab(),
         const AdminProductsTab(),
@@ -34,13 +40,14 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
       ];
     } else {
       // Staff chỉ xem Orders, Products, Vouchers, Users
-      return [
+      _cachedScreens = [
         const AdminOrdersTab(),
         const AdminProductsTab(),
         const AdminVoucherDashboardScreen(),
         const AdminUsersTab(),
       ];
     }
+    return _cachedScreens!;
   }
 
   List<BottomNavigationBarItem> _getNavItems() {
@@ -572,10 +579,12 @@ class AdminOrdersTab extends StatefulWidget {
   State<AdminOrdersTab> createState() => _AdminOrdersTabState();
 }
 
-class _AdminOrdersTabState extends State<AdminOrdersTab> {
+class _AdminOrdersTabState extends State<AdminOrdersTab>
+    with AutomaticKeepAliveClientMixin {
   List<dynamic> _orders = [];
   bool _isLoading = true;
   String? _selectedStatus;
+  bool _hasLoadedOnce = false; // Flag để biết đã load lần đầu chưa
 
   @override
   void initState() {
@@ -583,34 +592,61 @@ class _AdminOrdersTabState extends State<AdminOrdersTab> {
     _loadOrders();
   }
 
-  Future<void> _loadOrders() async {
-    print('🔄 Loading admin orders... (status: $_selectedStatus)');
+  @override
+  void didUpdateWidget(AdminOrdersTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Chỉ reload nếu filter thay đổi, không reload khi widget rebuild
+    // (Widget sẽ không bị recreate nếu parent cache screens đúng cách)
+  }
+
+  Future<void> _loadOrders({bool forceReload = false}) async {
+    // Nếu đã có dữ liệu và không phải force reload, không reload lại
+    if (_hasLoadedOnce && _orders.isNotEmpty && !forceReload && !_isLoading) {
+      print('⏭️ Skipping reload - data already loaded');
+      return;
+    }
+
+    print(
+        '🔄 Loading admin orders... (status: $_selectedStatus, forceReload: $forceReload)');
     setState(() => _isLoading = true);
 
     try {
       final orders = await ApiService.getAdminOrders(status: _selectedStatus);
       print('✅ Orders received: ${orders.length} orders');
-      print('Orders data: $orders');
 
       if (mounted) {
         setState(() {
           _orders = orders;
           _isLoading = false;
+          _hasLoadedOnce = true;
         });
       }
     } catch (e) {
       print('❌ Error loading orders: $e');
       if (mounted) {
         setState(() {
-          _orders = [];
+          // Chỉ clear orders nếu chưa load lần nào, nếu không thì giữ lại danh sách cũ
+          if (!_hasLoadedOnce) {
+            _orders = [];
+          }
           _isLoading = false;
+          _hasLoadedOnce = true;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi tải đơn hàng: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+
+        // Chỉ hiển thị lỗi nếu chưa có dữ liệu
+        if (_orders.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Lỗi tải đơn hàng: $e'),
+              backgroundColor: Colors.red,
+              action: SnackBarAction(
+                label: 'Thử lại',
+                textColor: Colors.white,
+                onPressed: () => _loadOrders(forceReload: true),
+              ),
+            ),
+          );
+        }
       }
     }
   }
@@ -675,7 +711,7 @@ class _AdminOrdersTabState extends State<AdminOrdersTab> {
             backgroundColor: Colors.green,
           ),
         );
-        _loadOrders(); // Reload orders list
+        _loadOrders(forceReload: true); // Reload orders list
       }
     } else {
       print('❌ Admin: Failed to update order #$orderId to: $newStatus');
@@ -702,12 +738,64 @@ class _AdminOrdersTabState extends State<AdminOrdersTab> {
     )
         .then((_) {
       // Reload orders when returning from detail screen
-      _loadOrders();
+      _loadOrders(forceReload: true);
     });
   }
 
+  Future<void> _viewOrderHistory(Map<String, dynamic> order) async {
+    // Hiển thị loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
+    try {
+      final historyData =
+          await ApiService.getOrderHistory(orderId: order['id']);
+
+      if (!mounted) return;
+      Navigator.of(context).pop(); // Đóng loading
+
+      if (historyData == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Không thể tải lịch sử đơn hàng'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // Hiển thị dialog với lịch sử
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (context) => _OrderHistoryDialog(
+          orderNumber: order['order_number'],
+          history: historyData['history'] as List<dynamic>,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop(); // Đóng loading
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lỗi: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  @override
+  bool get wantKeepAlive => true; // Giữ state khi chuyển tab
+
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
     return Column(
       children: [
         // Filter
@@ -739,14 +827,14 @@ class _AdminOrdersTabState extends State<AdminOrdersTab> {
                   ],
                   onChanged: (value) {
                     setState(() => _selectedStatus = value);
-                    _loadOrders();
+                    _loadOrders(forceReload: true);
                   },
                 ),
               ),
               const SizedBox(width: 8),
               IconButton(
                 icon: const Icon(Icons.refresh),
-                onPressed: _loadOrders,
+                onPressed: () => _loadOrders(forceReload: true),
                 tooltip: 'Làm mới',
               ),
             ],
@@ -773,7 +861,7 @@ class _AdminOrdersTabState extends State<AdminOrdersTab> {
                       ),
                     )
                   : RefreshIndicator(
-                      onRefresh: _loadOrders,
+                      onRefresh: () => _loadOrders(forceReload: true),
                       child: ListView.builder(
                         padding: const EdgeInsets.all(12),
                         itemCount: _orders.length,
@@ -909,19 +997,42 @@ class _AdminOrdersTabState extends State<AdminOrdersTab> {
                     ],
                   ),
                 const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => _viewOrderDetails(order),
-                    icon: const Icon(Icons.visibility, size: 16),
-                    label: const Text('Xem chi tiết đơn hàng'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _viewOrderDetails(order),
+                        icon: const Icon(Icons.visibility, size: 16),
+                        label: const Text('Xem chi tiết'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                    // Chỉ hiển thị nút "Xem lịch sử" cho admin
+                    if (Provider.of<AuthProvider>(context, listen: false)
+                            .currentUser
+                            ?.isAdmin ==
+                        true) ...[
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _viewOrderHistory(order),
+                          icon: const Icon(Icons.history, size: 16),
+                          label: const Text('Lịch sử'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
@@ -965,6 +1076,242 @@ class _AdminOrdersTabState extends State<AdminOrdersTab> {
         return Colors.red;
       default:
         return Colors.grey;
+    }
+  }
+}
+
+// ===== ORDER HISTORY DIALOG =====
+class _OrderHistoryDialog extends StatelessWidget {
+  final String orderNumber;
+  final List<dynamic> history;
+
+  const _OrderHistoryDialog({
+    required this.orderNumber,
+    required this.history,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        width: MediaQuery.of(context).size.width * 0.9,
+        constraints: const BoxConstraints(maxHeight: 600),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.history, color: Colors.orange.shade700),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Lịch sử đơn hàng',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          'Đơn #$orderNumber',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+            // History List
+            Flexible(
+              child: history.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.history,
+                              size: 64, color: Colors.grey.shade300),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Chưa có lịch sử thay đổi',
+                            style: TextStyle(color: Colors.grey.shade600),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.all(16),
+                      itemCount: history.length,
+                      itemBuilder: (context, index) {
+                        final record = history[index];
+                        final createdBy =
+                            record['created_by'] as Map<String, dynamic>?;
+                        final createdAt = record['created_at'] != null
+                            ? DateTime.parse(record['created_at'])
+                            : null;
+                        final formatter = DateFormat('dd/MM/yyyy HH:mm:ss');
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey.shade200),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: _getStatusColorForHistory(
+                                          record['status']),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      _getStatusLabel(record['status']),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  if (createdAt != null)
+                                    Text(
+                                      formatter.format(createdAt),
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              if (record['notes'] != null) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  record['notes'],
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade700,
+                                  ),
+                                ),
+                              ],
+                              if (createdBy != null) ...[
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    Icon(Icons.person,
+                                        size: 14, color: Colors.grey.shade600),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '${createdBy['first_name'] ?? ''} ${createdBy['last_name'] ?? ''} (${createdBy['username'] ?? 'Unknown'})',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.grey.shade600,
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: createdBy['role'] == 'admin'
+                                            ? Colors.orange.shade100
+                                            : Colors.blue.shade100,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        createdBy['role'] == 'admin'
+                                            ? 'ADMIN'
+                                            : 'STAFF',
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          color: createdBy['role'] == 'admin'
+                                              ? Colors.orange.shade900
+                                              : Colors.blue.shade900,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color _getStatusColorForHistory(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending':
+        return Colors.orange;
+      case 'processing':
+        return Colors.blue;
+      case 'shipped':
+        return Colors.purple;
+      case 'delivered':
+        return Colors.green;
+      case 'cancelled':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _getStatusLabel(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending':
+        return 'Chờ xử lý';
+      case 'processing':
+        return 'Đang xử lý';
+      case 'shipped':
+        return 'Đang giao';
+      case 'delivered':
+        return 'Hoàn thành';
+      case 'cancelled':
+        return 'Đã hủy';
+      default:
+        return status;
     }
   }
 }

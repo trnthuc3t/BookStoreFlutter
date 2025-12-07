@@ -1966,6 +1966,45 @@ class ApiService {
     }
   }
 
+  /// Get order history (Admin only)
+  static Future<Map<String, dynamic>?> getOrderHistory({
+    required int orderId,
+    bool isRetry = false,
+  }) async {
+    try {
+      print('📜 Getting order history for order #$orderId...');
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/api/admin/orders/$orderId/history'),
+        headers: await _getHeaders(),
+      );
+
+      print('📜 Order history response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print('✅ Order history loaded successfully');
+        return data;
+      } else if (response.statusCode == 401 && !isRetry) {
+        print('❌ Unauthorized - Attempting to refresh token...');
+        final refreshed = await refreshAccessToken();
+        if (refreshed) {
+          print('✅ Token refreshed, retrying get order history...');
+          return await getOrderHistory(orderId: orderId, isRetry: true);
+        }
+        print('❌ Failed to refresh token');
+        return null;
+      } else {
+        print(
+            '❌ Order history error: ${response.statusCode} - ${response.body}');
+      }
+      return null;
+    } catch (e, stackTrace) {
+      print('❌ Get order history error: $e');
+      print('Stack trace: $stackTrace');
+      return null;
+    }
+  }
+
   /// Cancel order (User)
   static Future<bool> cancelOrder({
     required int orderId,
