@@ -71,10 +71,10 @@ class ApiService {
     try {
       final response = await http
           .post(
-            Uri.parse(ApiConstants.loginUrl),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'username': username, 'password': password}),
-          )
+        Uri.parse(ApiConstants.loginUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'username': username, 'password': password}),
+      )
           .timeout(const Duration(seconds: 12));
 
       if (response.statusCode == 200) {
@@ -105,9 +105,9 @@ class ApiService {
         errorData = null;
       }
       final detail = (errorData?['detail'] ??
-              errorData?['message'] ??
-              errorData?['error'] ??
-              '')
+          errorData?['message'] ??
+          errorData?['error'] ??
+          '')
           .toString();
       final code = (errorData?['code'] ?? '').toString().toLowerCase();
 
@@ -1758,6 +1758,7 @@ class ApiService {
     try {
       print('🛍️ Creating simple order for user $userId...');
       print('💳 Payment method: $paymentMethod');
+      print('🎫 Voucher code: ${voucherCode ?? "null"}');
 
       final queryParts = <String>[
         'user_id=$userId',
@@ -1778,6 +1779,11 @@ class ApiService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         print('✅ Order created successfully: ${data['order_number']}');
+        print('🎫 Voucher in response: ${data['voucher'] ?? "null"}');
+        if (data['voucher'] != null) {
+          print('   Voucher code: ${data['voucher']['code']}');
+          print('   Voucher discount: ${data['discount_amount']}');
+        }
         return data;
       } else if (response.statusCode == 401) {
         print('❌ ========== 401 UNAUTHORIZED IN CREATE ORDER ==========');
@@ -2499,9 +2505,9 @@ class ApiService {
 
       final response = await http
           .post(
-            Uri.parse(url),
-            headers: await _getHeaders(),
-          )
+        Uri.parse(url),
+        headers: await _getHeaders(),
+      )
           .timeout(const Duration(seconds: 15));
 
       print('🛒 Response: ${response.statusCode} - ${response.body}');
@@ -2544,9 +2550,9 @@ class ApiService {
 
       final response = await http
           .post(
-            Uri.parse(url),
-            headers: await _getHeaders(),
-          )
+        Uri.parse(url),
+        headers: await _getHeaders(),
+      )
           .timeout(const Duration(seconds: 20));
 
       print('🛍️ Response: ${response.statusCode} - ${response.body}');

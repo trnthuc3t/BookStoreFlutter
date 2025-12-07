@@ -374,7 +374,7 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
                                   children: [
                                     IconButton(
                                       onPressed: stockQuantity > 0 &&
-                                              _quantity > 1
+                                          _quantity > 1
                                           ? () => setState(() => _quantity--)
                                           : null,
                                       icon: const Icon(Icons.remove),
@@ -417,7 +417,7 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
                             width: double.infinity,
                             child: ElevatedButton.icon(
                               onPressed:
-                                  stockQuantity > 0 ? () => _addToCart() : null,
+                              stockQuantity > 0 ? () => _addToCart() : null,
                               icon: const Icon(Icons.shopping_cart),
                               label: Text(
                                 stockQuantity > 0
@@ -426,9 +426,9 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
                               ),
                               style: ElevatedButton.styleFrom(
                                 padding:
-                                    const EdgeInsets.symmetric(vertical: 16),
+                                const EdgeInsets.symmetric(vertical: 16),
                                 backgroundColor:
-                                    stockQuantity > 0 ? null : Colors.grey,
+                                stockQuantity > 0 ? null : Colors.grey,
                               ),
                             ),
                           ),
@@ -911,7 +911,7 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
                 child: TextButton.icon(
                   onPressed: () {
                     setState(
-                        () => _showFullDescription = !_showFullDescription);
+                            () => _showFullDescription = !_showFullDescription);
                   },
                   icon: Icon(
                     _showFullDescription

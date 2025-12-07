@@ -146,7 +146,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
               final title = item['book_title'] as String? ?? 'Sản phẩm';
               final priceValue = item['book_price'];
               final price =
-                  priceValue != null ? (priceValue as num).toDouble() : 0.0;
+              priceValue != null ? (priceValue as num).toDouble() : 0.0;
 
               final originalPriceValue = item['book_original_price'];
               final originalPrice = originalPriceValue != null
@@ -160,7 +160,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
               final quantityValue = item['quantity'];
               final quantity =
-                  quantityValue != null ? (quantityValue as num).toInt() : 1;
+              quantityValue != null ? (quantityValue as num).toInt() : 1;
 
               final hasDiscount =
                   discountPercentage > 0 && originalPrice > price;
@@ -290,7 +290,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     'Voucher đã áp dụng',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  Text('${widget.voucher} - Giảm ${widget.voucherDiscount}k'),
+                  Text(
+                      '${widget.voucher} - Giảm ${(widget.voucherDiscount / 1000).toStringAsFixed(0)}k'),
                 ],
               ),
             ),
@@ -304,17 +305,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
     // Calculate subtotal safely from API data
     final subtotal = widget.cartItems.fold<int>(
       0,
-      (sum, item) {
+          (sum, item) {
         final priceValue = item['book_price'];
         final price = priceValue != null ? (priceValue as num).toDouble() : 0.0;
         final quantityValue = item['quantity'];
         final quantity =
-            quantityValue != null ? (quantityValue as num).toInt() : 1;
+        quantityValue != null ? (quantityValue as num).toInt() : 1;
         return sum + (price * quantity).toInt();
       },
     );
-    final total =
-        subtotal - (widget.voucherDiscount * 1000); // Convert k to actual value
+    // voucherDiscount is already in VND, no need to multiply
+    final total = subtotal - widget.voucherDiscount;
 
     return Card(
       child: Padding(
@@ -335,7 +336,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 children: [
                   const Text('Giảm giá:'),
                   Text(
-                    '-${widget.voucherDiscount}k',
+                    '-${(widget.voucherDiscount / 1000).toStringAsFixed(0)}k',
                     style: const TextStyle(color: Colors.green),
                   ),
                 ],
@@ -390,19 +391,20 @@ class _PaymentScreenState extends State<PaymentScreen> {
       print('💰 Payment method: ${widget.paymentMethod}');
 
       // Calculate total amount safely from API data
+      // voucherDiscount is already in VND, no need to multiply
       final totalAmount = widget.cartItems.fold<int>(
-            0,
+        0,
             (sum, item) {
-              final priceValue = item['book_price'];
-              final price =
-                  priceValue != null ? (priceValue as num).toDouble() : 0.0;
-              final quantityValue = item['quantity'];
-              final quantity =
-                  quantityValue != null ? (quantityValue as num).toInt() : 1;
-              return sum + (price * quantity).toInt();
-            },
-          ) -
-          (widget.voucherDiscount * 1000); // Convert k to actual value
+          final priceValue = item['book_price'];
+          final price =
+          priceValue != null ? (priceValue as num).toDouble() : 0.0;
+          final quantityValue = item['quantity'];
+          final quantity =
+          quantityValue != null ? (quantityValue as num).toInt() : 1;
+          return sum + (price * quantity).toInt();
+        },
+      ) -
+          widget.voucherDiscount;
 
       print('💰 Total amount: $totalAmount VND');
 
@@ -435,11 +437,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   Future<void> _processCODPayment(
-    int totalAmount,
-    int userId,
-    CartApiProvider cartProvider,
-  ) async {
+      int totalAmount,
+      int userId,
+      CartApiProvider cartProvider,
+      ) async {
     print('📝 Creating COD order via API...');
+    print('🎫 Voucher code: ${widget.voucher ?? "null"}');
+    print('💰 Voucher discount: ${widget.voucherDiscount}');
 
     final orderData = await ApiService.createSimpleOrder(
       userId: userId,
@@ -476,10 +480,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   Future<void> _processZaloPayPayment(
-    int totalAmount,
-    int userId,
-    CartApiProvider cartProvider,
-  ) async {
+      int totalAmount,
+      int userId,
+      CartApiProvider cartProvider,
+      ) async {
     print('💳 Processing ZaloPay payment...');
 
     // Step 1: Check if ZaloPay is installed
@@ -494,7 +498,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           title: const Text('ZaloPay chưa được cài đặt'),
           content: const Text(
             'Bạn cần cài đặt ứng dụng ZaloPay để thanh toán.\n\n'
-            'Bạn có muốn chuyển sang thanh toán COD không?',
+                'Bạn có muốn chuyển sang thanh toán COD không?',
           ),
           actions: [
             TextButton(
@@ -518,6 +522,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
     // Step 2: Create order in backend first
     print('📝 Creating order in backend...');
+    print('🎫 Voucher code: ${widget.voucher ?? "null"}');
+    print('💰 Voucher discount: ${widget.voucherDiscount}');
     final orderData = await ApiService.createSimpleOrder(
       userId: userId,
       paymentMethod: widget.paymentMethod,
@@ -552,7 +558,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     if (zpTransToken != null && zpTransToken.isNotEmpty) {
       print('🚀 Launching ZaloPay app with token: $zpTransToken');
       final paymentResult =
-          await ZaloPayService.instance.launchZaloPay(zpTransToken);
+      await ZaloPayService.instance.launchZaloPay(zpTransToken);
 
       if (paymentResult != null) {
         print('✅ ZaloPay payment result: $paymentResult');
