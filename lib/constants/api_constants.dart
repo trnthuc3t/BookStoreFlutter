@@ -1,6 +1,6 @@
 class ApiConstants {
 
-  static const String baseUrl = 'https://xrjssx4r-7000.asse.devtunnels.ms';
+  static const String baseUrl = 'https://xrjssx4r-8000.asse.devtunnels.ms';
 
 
   // API Endpoints

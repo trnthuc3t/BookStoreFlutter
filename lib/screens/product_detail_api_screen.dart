@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:carousel_slider/carousel_slider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -78,7 +77,7 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
 
   Future<void> _loadBookData({bool forceReload = false}) async {
     if (!mounted) return;
-    
+
     setState(() => _isLoading = true);
 
     try {
@@ -110,7 +109,7 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
           _cacheTimestamps[widget.bookId] = now;
           print('💾 Cached book #${widget.bookId}');
         }
-        
+
         // Check if reviews are cached
         if (_reviewsCache.containsKey(widget.bookId)) {
           reviewsData = _reviewsCache[widget.bookId];
@@ -134,7 +133,7 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
 
           _isLoading = false;
         });
-        
+
         // Lazy load reviews in background if not cached
         if (_reviewsData == null && !forceReload) {
           _loadReviews();
@@ -150,7 +149,7 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
 
   Future<void> _loadReviews() async {
     if (!mounted) return;
-    
+
     try {
       print('📥 Lazy loading reviews for book #${widget.bookId}...');
       final reviewsData = await ApiService.getBookReviews(
@@ -244,7 +243,7 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
                     ),
                   ),
                 ),
-                
+
                 // Content
                 SliverToBoxAdapter(
                   child: Container(
@@ -374,7 +373,8 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
                                 Row(
                                   children: [
                                     IconButton(
-                                      onPressed: stockQuantity > 0 && _quantity > 1
+                                      onPressed: stockQuantity > 0 &&
+                                              _quantity > 1
                                           ? () => setState(() => _quantity--)
                                           : null,
                                       icon: const Icon(Icons.remove),
@@ -384,7 +384,8 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
                                     ),
                                     Container(
                                       width: 60,
-                                      padding: const EdgeInsets.symmetric(vertical: 8),
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 8),
                                       decoration: BoxDecoration(
                                         border: Border.all(color: Colors.grey),
                                         borderRadius: BorderRadius.circular(4),
@@ -419,10 +420,13 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
                                   stockQuantity > 0 ? () => _addToCart() : null,
                               icon: const Icon(Icons.shopping_cart),
                               label: Text(
-                                stockQuantity > 0 ? 'Thêm vào giỏ hàng' : 'Hết hàng',
+                                stockQuantity > 0
+                                    ? 'Thêm vào giỏ hàng'
+                                    : 'Hết hàng',
                               ),
                               style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16),
                                 backgroundColor:
                                     stockQuantity > 0 ? null : Colors.grey,
                               ),
@@ -436,7 +440,7 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
               ],
             ),
           ),
-          
+
           // Floating action buttons (Back and Reload)
           Positioned(
             top: MediaQuery.of(context).padding.top + 8,
@@ -531,7 +535,8 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
                             color: Colors.grey.shade100,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(Icons.book, size: 100, color: Colors.grey),
+                          child: const Icon(Icons.book,
+                              size: 100, color: Colors.grey),
                         ),
                         imageBuilder: (context, imageProvider) => Container(
                           decoration: BoxDecoration(
@@ -621,20 +626,32 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
     if (_bookData == null) return const SizedBox();
 
     final authors = _bookData!['authors'] as List<dynamic>?;
-    final coverType = _bookData!['cover_type'] is String ? _bookData!['cover_type'] as String : null;
+    final coverType = _bookData!['cover_type'] is String
+        ? _bookData!['cover_type'] as String
+        : null;
     final length = _bookData!['length'] as num?;
     final width = _bookData!['width'] as num?;
     final thickness = _bookData!['thickness'] as num?;
     final weight = _bookData!['weight'] as num?;
-    
+
     // New fields - safe parsing
-    final bookSize = _bookData!['book_size'] is String ? _bookData!['book_size'] as String : null;
+    final bookSize = _bookData!['book_size'] is String
+        ? _bookData!['book_size'] as String
+        : null;
     final publishYear = _bookData!['publication_year'];
-    final supplierName = _bookData!['supplier_name'] is String ? _bookData!['supplier_name'] as String : null;
-    final publisherName = _bookData!['publisher_name'] is String ? _bookData!['publisher_name'] as String : null;
+    final supplierName = _bookData!['supplier_name'] is String
+        ? _bookData!['supplier_name'] as String
+        : null;
+    final publisherName = _bookData!['publisher_name'] is String
+        ? _bookData!['publisher_name'] as String
+        : null;
     final pageCount = _bookData!['pages'];
-    final language = _bookData!['language'] is String ? _bookData!['language'] as String : null;
-    final categoryName = _bookData!['category_name'] is String ? _bookData!['category_name'] as String : null;
+    final language = _bookData!['language'] is String
+        ? _bookData!['language'] as String
+        : null;
+    final categoryName = _bookData!['category_name'] is String
+        ? _bookData!['category_name'] as String
+        : null;
 
     // Nếu không có thông tin gì thì không hiển thị
     if ((authors == null || authors.isEmpty) &&
@@ -708,7 +725,7 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
               ),
               const SizedBox(height: 8),
             ],
-            
+
             // Weight
             if (weight != null) ...[
               _buildDetailRow(
@@ -718,7 +735,7 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
               ),
               const SizedBox(height: 8),
             ],
-            
+
             // Book Size (if available separately)
             if (bookSize != null && bookSize.isNotEmpty) ...[
               _buildDetailRow(
@@ -728,7 +745,7 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
               ),
               const SizedBox(height: 8),
             ],
-            
+
             // Publish Year
             if (publishYear != null) ...[
               _buildDetailRow(
@@ -738,7 +755,7 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
               ),
               const SizedBox(height: 8),
             ],
-            
+
             // Supplier
             if (supplierName != null && supplierName.isNotEmpty) ...[
               _buildDetailRow(
@@ -748,7 +765,7 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
               ),
               const SizedBox(height: 8),
             ],
-            
+
             // Publisher
             if (publisherName != null && publisherName.isNotEmpty) ...[
               _buildDetailRow(
@@ -758,7 +775,7 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
               ),
               const SizedBox(height: 8),
             ],
-            
+
             // Page Count
             if (pageCount != null) ...[
               _buildDetailRow(
@@ -768,7 +785,7 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
               ),
               const SizedBox(height: 8),
             ],
-            
+
             // Language
             if (language != null && language.isNotEmpty) ...[
               _buildDetailRow(
@@ -778,7 +795,7 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
               ),
               const SizedBox(height: 8),
             ],
-            
+
             // Category/Genre
             if (categoryName != null && categoryName.isNotEmpty) ...[
               _buildDetailRow(
@@ -893,7 +910,8 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
               Center(
                 child: TextButton.icon(
                   onPressed: () {
-                    setState(() => _showFullDescription = !_showFullDescription);
+                    setState(
+                        () => _showFullDescription = !_showFullDescription);
                   },
                   icon: Icon(
                     _showFullDescription
@@ -942,7 +960,7 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
         ),
       );
     }
-    
+
     if (_reviewsData!.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(16),
@@ -1042,108 +1060,108 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
 
     return RepaintBoundary(
       child: Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.shade100,
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 22,
-                backgroundColor: Colors.blue.shade100,
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.shade100,
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor: Colors.blue.shade100,
+                  child: Text(
+                    userName[0].toUpperCase(),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue.shade700,
+                      fontSize: 18,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        userName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          RatingBarIndicator(
+                            rating: rating,
+                            itemBuilder: (context, index) => const Icon(
+                              Icons.star,
+                              color: Colors.amber,
+                            ),
+                            itemCount: 5,
+                            itemSize: 18,
+                            direction: Axis.horizontal,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${rating.toStringAsFixed(1)} sao',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade600,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (comment.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
                 child: Text(
-                  userName[0].toUpperCase(),
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue.shade700,
-                    fontSize: 18,
+                  comment,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    height: 1.5,
+                    color: Colors.black87,
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      userName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        RatingBarIndicator(
-                          rating: rating,
-                          itemBuilder: (context, index) => const Icon(
-                            Icons.star,
-                            color: Colors.amber,
-                          ),
-                          itemCount: 5,
-                          itemSize: 18,
-                          direction: Axis.horizontal,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${rating.toStringAsFixed(1)} sao',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey.shade600,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+            ],
+            if (createdAt != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _formatReviewDate(createdAt),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade500,
                 ),
               ),
             ],
-          ),
-          if (comment.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                comment,
-                style: const TextStyle(
-                  fontSize: 15,
-                  height: 1.5,
-                  color: Colors.black87,
-                ),
-              ),
-            ),
           ],
-          if (createdAt != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              _formatReviewDate(createdAt),
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey.shade500,
-              ),
-            ),
-          ],
-        ],
-      ),
+        ),
       ),
     );
   }
@@ -1170,13 +1188,40 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
     }
   }
 
+  void _showSnackBarSafe(String message,
+      {Color? backgroundColor, Duration? duration}) {
+    if (!mounted) return;
+    try {
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      if (messenger != null) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: backgroundColor ?? Colors.grey,
+            duration: duration ?? const Duration(seconds: 2),
+          ),
+        );
+      } else {
+        print('⚠️ ScaffoldMessenger not available - widget may be disposed');
+      }
+    } catch (e) {
+      // Widget disposed, ignore
+      print('⚠️ Could not show snackbar - widget disposed: $e');
+    }
+  }
+
   Future<void> _addToCart() async {
+    if (!mounted) {
+      print('❌ Widget not mounted, aborting add to cart');
+      return;
+    }
+
     try {
       // Get user ID
       final prefs = await SharedPreferences.getInstance();
       final userIdStr = prefs.getString('user_id');
       final token = prefs.getString('auth_token');
-      
+
       // Debug logging
       print('🛒 === ADD TO CART DEBUG ===');
       print('User ID: $userIdStr');
@@ -1190,114 +1235,99 @@ class _ProductDetailApiScreenState extends State<ProductDetailApiScreen>
 
       if (userIdStr == null) {
         print('❌ No user ID found in SharedPreferences!');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('⚠️ Vui lòng đăng nhập để thêm vào giỏ hàng'),
-              backgroundColor: Colors.red,
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
+        _showSnackBarSafe(
+          '⚠️ Vui lòng đăng nhập để thêm vào giỏ hàng',
+          backgroundColor: Colors.red,
+        );
         return;
       }
-      
+
       if (token == null) {
         print('❌ No auth token found in SharedPreferences!');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('⚠️ Vui lòng đăng nhập lại'),
-              backgroundColor: Colors.red,
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
+        _showSnackBarSafe(
+          '⚠️ Vui lòng đăng nhập lại',
+          backgroundColor: Colors.red,
+        );
         return;
       }
 
       final userId = int.tryParse(userIdStr);
       if (userId == null) {
         print('❌ Cannot parse user ID: $userIdStr');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('⚠️ Lỗi định dạng user ID'),
-              backgroundColor: Colors.red,
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
+        _showSnackBarSafe(
+          '⚠️ Lỗi định dạng user ID',
+          backgroundColor: Colors.red,
+        );
         return;
       }
 
       // Show loading
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Đang thêm vào giỏ hàng...'),
-            duration: Duration(seconds: 1),
-          ),
-        );
-      }
+      _showSnackBarSafe(
+        'Đang thêm vào giỏ hàng...',
+        duration: const Duration(seconds: 1),
+      );
+
+      if (!mounted) return;
 
       // Add to cart via API
       print('📤 Calling ApiService.addToCart...');
-      print('   Parameters: userId=$userId, bookId=${widget.bookId}, quantity=$_quantity');
-      
+      print(
+          '   Parameters: userId=$userId, bookId=${widget.bookId}, quantity=$_quantity');
+
       final result = await ApiService.addToCart(
         userId: userId,
         bookId: widget.bookId,
         quantity: _quantity,
       );
-      
+
       print('📥 API call completed');
       print('   Result: ${result != null ? "Success" : "Failed (null)"}');
       if (result != null) {
         print('   Response data: $result');
       }
 
-      if (!mounted) return;
+      if (!mounted) {
+        print('❌ Widget disposed after API call, aborting');
+        return;
+      }
 
       if (result != null && !result.containsKey('error')) {
         print('✅ Successfully added to cart');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Đã thêm vào giỏ hàng!'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
+        _showSnackBarSafe(
+          '✅ Đã thêm vào giỏ hàng!',
+          backgroundColor: Colors.green,
         );
 
         // Reset quantity
-        setState(() => _quantity = 1);
+        if (mounted) {
+          try {
+            setState(() => _quantity = 1);
+          } catch (_) {
+            // Widget disposed, ignore
+          }
+        }
       } else {
         // Handle error response
         String errorMessage = '❌ Không thể thêm vào giỏ hàng';
         if (result != null && result.containsKey('message')) {
           errorMessage = result['message'];
         }
-        
-        print('❌ Failed to add to cart - ${result?['error'] ?? 'null response'}');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
+
+        print(
+            '❌ Failed to add to cart - ${result?['error'] ?? 'null response'}');
+        _showSnackBarSafe(
+          errorMessage,
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
         );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('❌ Error adding to cart: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('❌ Đã xảy ra lỗi'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
+      print('❌ Stack trace: $stackTrace');
+      _showSnackBarSafe(
+        '❌ Đã xảy ra lỗi: ${e.toString()}',
+        backgroundColor: Colors.red,
+      );
     }
   }
 }
